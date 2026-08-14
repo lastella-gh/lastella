@@ -1,0 +1,593 @@
+import { MongoClient } from "mongodb";
+
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://ikoteksolutions_db_user:xqO0gg9dM5cpIoL0@cluster0.fbfpsbf.mongodb.net/?retryWrites=true&w=majority";
+const DB_NAME = "lastella";
+
+const sampleProducts = [
+  // 1. Necklaces
+  {
+    slug: "royal-rose-gold-necklace",
+    name_en: "Royal Rose Gold Diamond Necklace",
+    name_ar: "قلادة الملكية من الذهب الوردي والألماس",
+    category: "necklace",
+    price: 1250,
+    old_price: 1500,
+    image: "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80",
+    stock: 15,
+    active: true,
+    badge: "bestseller",
+    rating: 4.9,
+    reviews: 28,
+    description_en: "Handcrafted 18k rose gold necklace encrusted with ethically sourced brilliant-cut diamonds. Perfect for regal evening attire.",
+    sizes: ["16 inch", "18 inch", "20 inch"],
+    colors: ["Rose Gold", "Yellow Gold", "White Gold"],
+    images: [
+      "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  },
+  {
+    slug: "chopard-floating-diamond-pendant-necklace",
+    name_en: "Floating Diamond Halo Necklace",
+    name_ar: "قلادة الألماس العائم والبهجة",
+    category: "necklace",
+    price: 1890,
+    old_price: 2200,
+    image: "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=800&q=80",
+    stock: 10,
+    active: true,
+    badge: "new",
+    rating: 5.0,
+    reviews: 19,
+    description_en: "Suspended brilliant diamond surrounded by micro-pave halo set in pure 18k white gold.",
+    sizes: ["16 inch", "18 inch"],
+    colors: ["White Gold", "Platinum"],
+    images: [
+      "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  },
+  {
+    slug: "celestial-gold-choker-necklace",
+    name_en: "Celestial Hammered Gold Choker",
+    name_ar: "طوق الذهب المطرّق السماوي",
+    category: "necklace",
+    price: 980,
+    old_price: null,
+    image: "https://images.unsplash.com/photo-1611591475140-7e0258169fb6?auto=format&fit=crop&w=800&q=80",
+    stock: 22,
+    active: true,
+    badge: "",
+    rating: 4.7,
+    reviews: 12,
+    description_en: "Modern artisanal 18k gold choker with textured hammered finish, reflecting warm light from every angle.",
+    sizes: ["Choker 14-16 inch"],
+    colors: ["Yellow Gold"],
+    images: [
+      "https://images.unsplash.com/photo-1611591475140-7e0258169fb6?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  },
+  {
+    slug: "imperial-ruby-statement-necklace",
+    name_en: "Imperial Ruby & Diamond Statement Necklace",
+    name_ar: "قلادة الياقوت الإمبراطوري الفاخرة",
+    category: "necklace",
+    price: 3800,
+    old_price: 4300,
+    image: "https://images.unsplash.com/photo-1603561591411-07134e71a2a9?auto=format&fit=crop&w=800&q=80",
+    stock: 4,
+    active: true,
+    badge: "bestseller",
+    rating: 5.0,
+    reviews: 35,
+    description_en: "Showstopping necklace featuring deep Burmese rubies surrounded by marquise and round cut diamonds.",
+    sizes: ["18 inch"],
+    colors: ["Rose Gold", "White Gold"],
+    images: [
+      "https://images.unsplash.com/photo-1603561591411-07134e71a2a9?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  },
+
+  // 2. Rings
+  {
+    slug: "sapphire-elegance-ring",
+    name_en: "Royal Blue Sapphire & Diamond Ring",
+    name_ar: "خاتم الياقوت الأزرق الملكي والألماس",
+    category: "ring",
+    price: 850,
+    old_price: 990,
+    image: "https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=800&q=80",
+    stock: 8,
+    active: true,
+    badge: "new",
+    rating: 5.0,
+    reviews: 14,
+    description_en: "Stunning oval Ceylon blue sapphire framed by halo pave diamonds set in 18k white gold.",
+    sizes: ["US 6", "US 7", "US 8"],
+    colors: ["White Gold", "Platinum"],
+    images: [
+      "https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  },
+  {
+    slug: "solitaire-diamond-engagement-ring",
+    name_en: "Solitaire Platinum Diamond Ring",
+    name_ar: "خاتم سوليتير من البلاتين والماس",
+    category: "ring",
+    price: 1800,
+    old_price: 2100,
+    image: "https://images.unsplash.com/photo-1603561596112-0a132b757442?auto=format&fit=crop&w=800&q=80",
+    stock: 6,
+    active: true,
+    badge: "bestseller",
+    rating: 4.9,
+    reviews: 42,
+    description_en: "Classic 4-prong solitaire diamond ring crafted in pure 950 platinum with maximum light brilliance.",
+    sizes: ["US 5", "US 6", "US 7", "US 8"],
+    colors: ["Platinum", "White Gold"],
+    images: [
+      "https://images.unsplash.com/photo-1603561596112-0a132b757442?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  },
+  {
+    slug: "emerald-cut-eternity-band",
+    name_en: "Emerald-Cut Diamond Eternity Band",
+    name_ar: "خاتم الأبدية بالألماس المقطوع بالزمرد",
+    category: "ring",
+    price: 1650,
+    old_price: 1950,
+    image: "https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=800&q=80",
+    stock: 11,
+    active: true,
+    badge: "sale",
+    rating: 4.8,
+    reviews: 23,
+    description_en: "Continuous row of emerald-cut diamonds seamlessly set in an 18k yellow gold band.",
+    sizes: ["US 6", "US 7"],
+    colors: ["Yellow Gold", "Rose Gold"],
+    images: [
+      "https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  },
+  {
+    slug: "rose-gold-stackable-diamond-ring",
+    name_en: "Rose Gold Twist Diamond Ring",
+    name_ar: "خاتم الذهب الوردي الملتوي بالألماس",
+    category: "ring",
+    price: 590,
+    old_price: null,
+    image: "https://images.unsplash.com/photo-1603561596112-0a132b757442?auto=format&fit=crop&w=800&q=80",
+    stock: 18,
+    active: true,
+    badge: "",
+    rating: 4.6,
+    reviews: 17,
+    description_en: "Dainty interwoven gold band set with shimmering diamond accents. Ideal for stacking.",
+    sizes: ["US 5", "US 6", "US 7"],
+    colors: ["Rose Gold"],
+    images: [
+      "https://images.unsplash.com/photo-1603561596112-0a132b757442?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  },
+
+  // 3. Bracelets
+  {
+    slug: "emerald-heritage-bracelet",
+    name_en: "Emerald Heritage Tennis Bracelet",
+    name_ar: "سوار التنس التراثي بالزمرد",
+    category: "bracelet",
+    price: 2100,
+    old_price: 2450,
+    image: "https://images.unsplash.com/photo-1611591475140-7e0258169fb6?auto=format&fit=crop&w=800&q=80",
+    stock: 5,
+    active: true,
+    badge: "sale",
+    rating: 4.8,
+    reviews: 9,
+    description_en: "Vibrant Colombian emeralds flanked by micro-pave diamonds on an articulated 18k gold tennis line.",
+    sizes: ["7 inch", "7.5 inch"],
+    colors: ["Yellow Gold"],
+    images: [
+      "https://images.unsplash.com/photo-1611591475140-7e0258169fb6?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  },
+  {
+    slug: "luxury-gold-bangle-set",
+    name_en: "18K Gold Sculpted Bangle Set",
+    name_ar: "طقم أساور مجدولة من الذهب عيار 18",
+    category: "bracelet",
+    price: 1450,
+    old_price: 1700,
+    image: "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&w=800&q=80",
+    stock: 10,
+    active: true,
+    badge: "new",
+    rating: 4.8,
+    reviews: 16,
+    description_en: "Set of three interlocking 18k solid gold bangles with polished mirror finish.",
+    sizes: ["Small", "Medium", "Large"],
+    colors: ["Yellow Gold", "Rose Gold"],
+    images: [
+      "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  },
+  {
+    slug: "classic-diamond-tennis-bracelet",
+    name_en: "Classic 4-Carat Diamond Tennis Bracelet",
+    name_ar: "سوار التنس الألماسي الكلاسيكي سعة 4 قيراط",
+    category: "bracelet",
+    price: 2950,
+    old_price: 3400,
+    image: "https://images.unsplash.com/photo-1611591475140-7e0258169fb6?auto=format&fit=crop&w=800&q=80",
+    stock: 7,
+    active: true,
+    badge: "bestseller",
+    rating: 5.0,
+    reviews: 51,
+    description_en: "Timeless 4ct round brilliant white diamonds set in flexible 18k white gold double-latch line.",
+    sizes: ["6.5 inch", "7 inch", "7.5 inch"],
+    colors: ["White Gold", "Yellow Gold"],
+    images: [
+      "https://images.unsplash.com/photo-1611591475140-7e0258169fb6?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  },
+  {
+    slug: "charm-pearl-chain-bracelet",
+    name_en: "Baroque Pearl Chain Bracelet",
+    name_ar: "سوار سلسالي باللؤلؤ الباروك",
+    category: "bracelet",
+    price: 480,
+    old_price: null,
+    image: "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&w=800&q=80",
+    stock: 25,
+    active: true,
+    badge: "",
+    rating: 4.7,
+    reviews: 13,
+    description_en: "Lustrous organic baroque pearls on a chunky 18k gold paperclip chain link.",
+    sizes: ["7 inch"],
+    colors: ["Yellow Gold"],
+    images: [
+      "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  },
+
+  // 4. Earrings
+  {
+    slug: "pearl-drop-earrings",
+    name_en: "Tahitian Black Pearl Drop Earrings",
+    name_ar: "أقراط لؤلؤ تاهيتي الأسود المتدلية",
+    category: "earrings",
+    price: 640,
+    old_price: 750,
+    image: "https://images.unsplash.com/photo-1630019852942-f89202989a59?auto=format&fit=crop&w=800&q=80",
+    stock: 12,
+    active: true,
+    badge: "",
+    rating: 4.7,
+    reviews: 19,
+    description_en: "Rare iridescent Tahitian dark cultured pearls suspended from diamond-adorned gold leverbacks.",
+    sizes: ["Standard"],
+    colors: ["Yellow Gold", "White Gold"],
+    images: [
+      "https://images.unsplash.com/photo-1630019852942-f89202989a59?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  },
+  {
+    slug: "diamond-cluster-stud-earrings",
+    name_en: "Floral Diamond Cluster Studs",
+    name_ar: "أقراط الماس عنقودية على شكل زهرة",
+    category: "earrings",
+    price: 890,
+    old_price: 1050,
+    image: "https://images.unsplash.com/photo-1630019852942-f89202989a59?auto=format&fit=crop&w=800&q=80",
+    stock: 14,
+    active: true,
+    badge: "bestseller",
+    rating: 4.9,
+    reviews: 38,
+    description_en: "Brilliant diamond studs arranged in a blooming flower cluster motif in 18k white gold.",
+    sizes: ["Standard"],
+    colors: ["White Gold", "Rose Gold"],
+    images: [
+      "https://images.unsplash.com/photo-1630019852942-f89202989a59?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  },
+  {
+    slug: "chopard-style-gold-hoop-earrings",
+    name_en: "Sculpted Gold Huggie Hoop Earrings",
+    name_ar: "أقراط طوقية ذهبية مصقولة",
+    category: "earrings",
+    price: 520,
+    old_price: null,
+    image: "https://images.unsplash.com/photo-1630019852942-f89202989a59?auto=format&fit=crop&w=800&q=80",
+    stock: 20,
+    active: true,
+    badge: "new",
+    rating: 4.8,
+    reviews: 11,
+    description_en: "Sleek 18k gold huggie hoops with secure snap closure and ultra-comfortable daily fit.",
+    sizes: ["12mm", "15mm"],
+    colors: ["Yellow Gold", "Rose Gold"],
+    images: [
+      "https://images.unsplash.com/photo-1630019852942-f89202989a59?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  },
+  {
+    slug: "chandelier-emerald-drop-earrings",
+    name_en: "Chandelier Emerald & Diamond Earrings",
+    name_ar: "أقراط الثريا الفاخرة بالزمرد والماس",
+    category: "earrings",
+    price: 2400,
+    old_price: 2800,
+    image: "https://images.unsplash.com/photo-1630019852942-f89202989a59?auto=format&fit=crop&w=800&q=80",
+    stock: 3,
+    active: true,
+    badge: "sale",
+    rating: 5.0,
+    reviews: 8,
+    description_en: "Cascading chandelier drop earrings featuring pear-shaped emeralds and brilliant white diamonds.",
+    sizes: ["Standard"],
+    colors: ["White Gold"],
+    images: [
+      "https://images.unsplash.com/photo-1630019852942-f89202989a59?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  },
+
+  // 5. Watches
+  {
+    slug: "chopard-inspired-luxury-watch",
+    name_en: "Lastella Imperial Rose Gold Watch",
+    name_ar: "ساعة لاستيلا الإمبراطورية من الذهب الوردي",
+    category: "watch",
+    price: 3400,
+    old_price: 3900,
+    image: "https://images.unsplash.com/photo-1524805444758-089113d48a6d?auto=format&fit=crop&w=800&q=80",
+    stock: 3,
+    active: true,
+    badge: "bestseller",
+    rating: 5.0,
+    reviews: 31,
+    description_en: "Swiss automatic movement luxury timepiece featuring mother of pearl dial and genuine alligator leather strap.",
+    sizes: ["36mm", "40mm"],
+    colors: ["Rose Gold / Rose", "Silver / White"],
+    images: [
+      "https://images.unsplash.com/photo-1524805444758-089113d48a6d?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  },
+  {
+    slug: "royale-diamond-bezel-silver-watch",
+    name_en: "Royale Diamond Bezel Steel Watch",
+    name_ar: "ساعة رويال الفولاذية بمرصعة بالألماس",
+    category: "watch",
+    price: 2850,
+    old_price: 3200,
+    image: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=800&q=80",
+    stock: 6,
+    active: true,
+    badge: "new",
+    rating: 4.9,
+    reviews: 21,
+    description_en: "Polished stainless steel case framed by 44 round diamonds with scratch-resistant sapphire crystal glass.",
+    sizes: ["34mm", "38mm"],
+    colors: ["Silver / Diamond", "Two-Tone Gold"],
+    images: [
+      "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  },
+  {
+    slug: "midnight-black-chronograph-watch",
+    name_en: "Midnight Ceramic Skeleton Watch",
+    name_ar: "ساعة منتصف الليل السيراميكية الهيكلية",
+    category: "watch",
+    price: 4100,
+    old_price: 4600,
+    image: "https://images.unsplash.com/photo-1524805444758-089113d48a6d?auto=format&fit=crop&w=800&q=80",
+    stock: 2,
+    active: true,
+    badge: "sale",
+    rating: 5.0,
+    reviews: 15,
+    description_en: "High-tech matte black ceramic case with visible automatic movement gears and rose gold indices.",
+    sizes: ["41mm"],
+    colors: ["Matte Black"],
+    images: [
+      "https://images.unsplash.com/photo-1524805444758-089113d48a6d?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  },
+
+  // 6. Pendants
+  {
+    slug: "vintage-pendant-locket",
+    name_en: "Vintage Diamond & Ruby Heart Pendant",
+    name_ar: "قلادة القلب العتيقة بالألماس والياقوت",
+    category: "pendant",
+    price: 520,
+    old_price: null,
+    image: "https://images.unsplash.com/photo-1603561591411-07134e71a2a9?auto=format&fit=crop&w=800&q=80",
+    stock: 20,
+    active: true,
+    badge: "new",
+    rating: 4.9,
+    reviews: 7,
+    description_en: "Intricately carved vintage heart pendant set with natural crimson rubies and accent round diamonds.",
+    sizes: ["One Size"],
+    colors: ["Rose Gold", "Yellow Gold"],
+    images: [
+      "https://images.unsplash.com/photo-1603561591411-07134e71a2a9?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  },
+  {
+    slug: "arabic-calligraphy-gold-pendant",
+    name_en: "Custom Arabic Calligraphy Gold Medallion",
+    name_ar: "ميدالية الذهب بالخط العربي المخصص",
+    category: "pendant",
+    price: 780,
+    old_price: 920,
+    image: "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80",
+    stock: 15,
+    active: true,
+    badge: "bestseller",
+    rating: 5.0,
+    reviews: 44,
+    description_en: "Ornate circular medallion laser-etched with intricate Arabic script, set in 18k solid gold.",
+    sizes: ["Medium (22mm)", "Large (28mm)"],
+    colors: ["Yellow Gold", "Rose Gold"],
+    images: [
+      "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  },
+  {
+    slug: "emerald-teardrop-pendant",
+    name_en: "Pear-Cut Emerald Teardrop Pendant",
+    name_ar: "قلادة قطرة الدمع بالزمرد الكمثري",
+    category: "pendant",
+    price: 1150,
+    old_price: 1350,
+    image: "https://images.unsplash.com/photo-1603561591411-07134e71a2a9?auto=format&fit=crop&w=800&q=80",
+    stock: 9,
+    active: true,
+    badge: "sale",
+    rating: 4.8,
+    reviews: 18,
+    description_en: "Deep green pear-shaped emerald drop suspended from a diamond bail in 18k yellow gold.",
+    sizes: ["One Size"],
+    colors: ["Yellow Gold", "White Gold"],
+    images: [
+      "https://images.unsplash.com/photo-1603561591411-07134e71a2a9?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  },
+
+  // 7. Extra High-End Additions
+  {
+    slug: "monaco-diamond-pave-cuff",
+    name_en: "Monaco Diamond Pave Wide Cuff",
+    name_ar: "سوار موناكو العريض بالألماس المرصوف",
+    category: "bracelet",
+    price: 3600,
+    old_price: 4100,
+    image: "https://images.unsplash.com/photo-1611591475140-7e0258169fb6?auto=format&fit=crop&w=800&q=80",
+    stock: 4,
+    active: true,
+    badge: "bestseller",
+    rating: 5.0,
+    reviews: 29,
+    description_en: "Architectural 18k gold open cuff entirely pave-set with 500+ round brilliant diamonds.",
+    sizes: ["Medium", "Large"],
+    colors: ["Rose Gold", "Yellow Gold"],
+    images: [
+      "https://images.unsplash.com/photo-1611591475140-7e0258169fb6?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  },
+  {
+    slug: "infinity-diamond-cross-necklace",
+    name_en: "Infinity Diamond Pendant Necklace",
+    name_ar: "قلادة الألماس الأبدية المتقاطعة",
+    category: "necklace",
+    price: 1390,
+    old_price: 1600,
+    image: "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80",
+    stock: 14,
+    active: true,
+    badge: "new",
+    rating: 4.9,
+    reviews: 22,
+    description_en: "Fluid infinity knot loop featuring gradient diamonds set on a delicate 18k gold chain.",
+    sizes: ["18 inch"],
+    colors: ["White Gold", "Rose Gold"],
+    images: [
+      "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  },
+  {
+    slug: "solitaire-princess-cut-diamond-studs",
+    name_en: "Princess-Cut Diamond Solitaire Studs",
+    name_ar: "أقراط الماس برينسيس المربعة الكلاسيكية",
+    category: "earrings",
+    price: 1100,
+    old_price: 1300,
+    image: "https://images.unsplash.com/photo-1630019852942-f89202989a59?auto=format&fit=crop&w=800&q=80",
+    stock: 16,
+    active: true,
+    badge: "",
+    rating: 4.8,
+    reviews: 27,
+    description_en: "Pair of sharp princess-cut diamonds set in 4-prong basket settings with screw-back security.",
+    sizes: ["1.0 Carat TW", "2.0 Carat TW"],
+    colors: ["White Gold", "Platinum"],
+    images: [
+      "https://images.unsplash.com/photo-1630019852942-f89202989a59?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  },
+  {
+    slug: "art-deco-emerald-ring",
+    name_en: "Art Deco Emerald & Baguette Diamond Ring",
+    name_ar: "خاتم أرت ديكو الفاخر بالزمرد وألماس الباجيت",
+    category: "ring",
+    price: 2250,
+    old_price: 2600,
+    image: "https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=800&q=80",
+    stock: 5,
+    active: true,
+    badge: "new",
+    rating: 5.0,
+    reviews: 12,
+    description_en: "1920s vintage geometric ring design featuring step-cut Zambian emerald and tapered baguette diamonds.",
+    sizes: ["US 6", "US 7"],
+    colors: ["Yellow Gold", "Platinum"],
+    images: [
+      "https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=800&q=80"
+    ],
+    createdAt: new Date()
+  }
+];
+
+async function run() {
+  const client = new MongoClient(MONGODB_URI, {
+    tlsInsecure: true,
+    serverSelectionTimeoutMS: 8000,
+  });
+  try {
+    await client.connect();
+    console.log("Connected to MongoDB Atlas!");
+    const db = client.db(DB_NAME);
+    
+    // Clear old products
+    await db.collection("products").deleteMany({});
+    console.log("Cleared existing products.");
+
+    // Insert 25 products
+    const res = await db.collection("products").insertMany(sampleProducts);
+    console.log(`SUCCESS: Inserted ${res.insertedCount} high-end demo products into MongoDB!`);
+  } catch (e) {
+    console.error("Error populating database:", e);
+  } finally {
+    await client.close();
+  }
+}
+
+run();

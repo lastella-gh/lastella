@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AuthCtx {
   user: User | null;
@@ -7,7 +8,8 @@ interface AuthCtx {
   isAdmin: boolean;
   loading: boolean;
   signOut: () => Promise<void>;
-  signIn: (email: string, name?: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, name: string) => Promise<void>;
 }
 
 const Ctx = createContext<AuthCtx | null>(null);
@@ -17,57 +19,88 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
-    // Safety timeout — loading never gets stuck for more than 1s
-    const timer = setTimeout(() => setLoading(false), 1000);
-    try {
-      const storedUser = localStorage.getItem("mock_user");
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        // Accept both old mock-id and new UUID formats
-        setUser(parsedUser);
-        setSession({ user: parsedUser } as Session);
-        setIsAdmin(parsedUser.email === "admin@lastella.com");
-      }
-    } catch (e) {}
-    setLoading(false);
-    clearTimeout(timer);
-    return () => clearTimeout(timer);
+    let active = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!active) return;
+      setSession(data.session);
+      setUser(data.session?.user ?? null);
+      setAuthReady(true);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!active) return;
+      setLoading(true);
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
+      setAuthReady(true);
+    });
+
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
-  const signIn = async (email: string, name: string = "User") => {
-    const mockUser: User = {
-      id: crypto.randomUUID(),
-      email: email,
-      user_metadata: { full_name: name },
-      app_metadata: {},
-      aud: "authenticated",
-      created_at: new Date().toISOString(),
-    } as User;
-    
-    localStorage.setItem("mock_user", JSON.stringify(mockUser));
-    setUser(mockUser);
-    setSession({ user: mockUser } as Session);
-    setIsAdmin(email === "admin@lastella.com");
+  useEffect(() => {
+    if (!authReady) return;
+    let active = true;
+
+    if (!user) {
+      setIsAdmin(false);
+      setLoading(false);
+      return;
+    }
+
+    supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) console.error("Failed to load user role:", error.message);
+        setIsAdmin(data?.role === "admin");
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [authReady, user]);
+
+  const signIn = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+  };
+
+  const signUp = async (email: string, password: string, name: string) => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: name } },
+    });
+    if (error) throw error;
   };
 
   const signOut = async () => {
-    localStorage.removeItem("mock_user");
-    setUser(null);
-    setSession(null);
-    setIsAdmin(false);
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
   };
 
   return (
-    <Ctx.Provider value={{
-      user,
-      session,
-      isAdmin,
-      loading,
-      signOut,
-      signIn
-    }}>
+    <Ctx.Provider
+      value={{
+        user,
+        session,
+        isAdmin,
+        loading,
+        signOut,
+        signIn,
+        signUp,
+      }}
+    >
       {children}
     </Ctx.Provider>
   );

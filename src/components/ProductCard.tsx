@@ -14,19 +14,27 @@ export function ProductCard({ product }: { product: Product }) {
   const wished = Array.isArray(wishlist) && wishlist.includes(product.id);
   const price = Number(product.price || 0);
   const oldPrice = product.oldPrice ? Number(product.oldPrice) : null;
-  const discount = oldPrice && oldPrice > price ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0;
-  
-  const nameText = typeof product.name === "object" && product.name !== null
-    ? (product.name[lang] || product.name.en || product.name.ar || "")
-    : String(product.name || "");
+  const discount =
+    oldPrice && oldPrice > price ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0;
 
-  const ratingVal = typeof product.rating === "number" ? product.rating : Number(product.rating || 0);
-  const reviewsVal = typeof product.reviews === "number" ? product.reviews : Number(product.reviews || 0);
+  const nameText =
+    typeof product.name === "object" && product.name !== null
+      ? product.name[lang] || product.name.en || product.name.ar || ""
+      : String(product.name || "");
+
+  const ratingVal =
+    typeof product.rating === "number" ? product.rating : Number(product.rating || 0);
+  const reviewsVal =
+    typeof product.reviews === "number" ? product.reviews : Number(product.reviews || 0);
 
   const badgeLabel =
-    product.badge === "new" ? t("product.new") :
-    product.badge === "sale" ? t("product.sale") :
-    product.badge === "bestseller" ? t("product.bestseller") : null;
+    product.badge === "new"
+      ? t("product.new")
+      : product.badge === "sale"
+        ? t("product.sale")
+        : product.badge === "bestseller"
+          ? t("product.bestseller")
+          : null;
 
   return (
     <div className="group relative">
@@ -54,7 +62,10 @@ export function ProductCard({ product }: { product: Product }) {
           {/* Quick actions */}
           <div className="absolute top-3 end-3 flex flex-col gap-2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
             <button
-              onClick={(e) => { e.preventDefault(); toggleWishlist(product.id); }}
+              onClick={(e) => {
+                e.preventDefault();
+                toggleWishlist(product.id);
+              }}
               className="grid place-items-center h-9 w-9 rounded-full glass hover:bg-primary hover:text-primary-foreground transition-all"
               aria-label="Wishlist"
             >
@@ -71,7 +82,11 @@ export function ProductCard({ product }: { product: Product }) {
           {/* Add to cart overlay */}
           <div className="absolute inset-x-3 bottom-3 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
             <button
-              onClick={(e) => { e.preventDefault(); addToCart(product); toast.success(`${nameText} added to cart`); }}
+              onClick={(e) => {
+                e.preventDefault();
+                addToCart(product);
+                toast.success(`${nameText} added to cart`);
+              }}
               className="w-full glass-dark rounded-full py-2.5 text-xs font-semibold uppercase tracking-[0.15em] flex items-center justify-center gap-2 hover:bg-primary hover:text-primary-foreground transition-all"
             >
               <ShoppingBag className="h-3.5 w-3.5" />
@@ -91,7 +106,11 @@ export function ProductCard({ product }: { product: Product }) {
           </h3>
           <div className="flex items-baseline gap-2 flex-wrap">
             <span className="text-base font-semibold">{formatPrice(price)}</span>
-            {oldPrice && oldPrice > 0 && <span className="text-sm text-muted-foreground line-through">{formatPrice(oldPrice)}</span>}
+            {oldPrice && oldPrice > 0 && (
+              <span className="text-sm text-muted-foreground line-through">
+                {formatPrice(oldPrice)}
+              </span>
+            )}
           </div>
         </div>
       </Link>

@@ -12,12 +12,19 @@ export interface Product {
   reviews: number;
   badge?: "new" | "sale" | "bestseller";
   stock: number;
+  description?: string;
   images: string[];
   sizes: string[];
   colors: string[];
 }
 
-export interface CartItem { id: string; product: Product; qty: number; size?: string; color?: string; }
+export interface CartItem {
+  id: string;
+  product: Product;
+  qty: number;
+  size?: string;
+  color?: string;
+}
 
 interface StoreCtx {
   cart: CartItem[];
@@ -25,6 +32,7 @@ interface StoreCtx {
   addToCart: (p: Product, qty?: number, size?: string, color?: string) => void;
   removeFromCart: (cartItemId: string) => void;
   updateQty: (cartItemId: string, qty: number) => void;
+  clearCart: () => void;
   toggleWishlist: (id: string) => void;
   cartCount: number;
   cartTotal: number;
@@ -42,25 +50,51 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const w = localStorage.getItem("lastella-wishlist");
       if (c) setCart(JSON.parse(c));
       if (w) setWishlist(JSON.parse(w));
-    } catch {}
+    } catch {
+      // Storage can be unavailable in privacy modes.
+    }
   }, []);
-  useEffect(() => { try { localStorage.setItem("lastella-cart", JSON.stringify(cart)); } catch {} }, [cart]);
-  useEffect(() => { try { localStorage.setItem("lastella-wishlist", JSON.stringify(wishlist)); } catch {} }, [wishlist]);
+  useEffect(() => {
+    try {
+      localStorage.setItem("lastella-cart", JSON.stringify(cart));
+    } catch {
+      // Storage can be unavailable in privacy modes.
+    }
+  }, [cart]);
+  useEffect(() => {
+    try {
+      localStorage.setItem("lastella-wishlist", JSON.stringify(wishlist));
+    } catch {
+      // Storage can be unavailable in privacy modes.
+    }
+  }, [wishlist]);
 
-  const value = useMemo<StoreCtx>(() => ({
-    cart, wishlist,
-    addToCart: (p, qty = 1, size, color) => setCart((c) => {
-      const cartItemId = `${p.id}-${size || 'nosize'}-${color || 'nocolor'}`;
-      const ex = c.find((i) => i.id === cartItemId);
-      if (ex) return c.map((i) => i.id === cartItemId ? { ...i, qty: i.qty + qty } : i);
-      return [...c, { id: cartItemId, product: p, qty, size, color }];
+  const value = useMemo<StoreCtx>(
+    () => ({
+      cart,
+      wishlist,
+      addToCart: (p, qty = 1, size, color) =>
+        setCart((c) => {
+          const cartItemId = `${p.id}-${size || "nosize"}-${color || "nocolor"}`;
+          const ex = c.find((i) => i.id === cartItemId);
+          if (ex) return c.map((i) => (i.id === cartItemId ? { ...i, qty: i.qty + qty } : i));
+          return [...c, { id: cartItemId, product: p, qty, size, color }];
+        }),
+      removeFromCart: (cartItemId) => setCart((c) => c.filter((i) => i.id !== cartItemId)),
+      updateQty: (cartItemId, qty) =>
+        setCart((c) =>
+          qty <= 0
+            ? c.filter((i) => i.id !== cartItemId)
+            : c.map((i) => (i.id === cartItemId ? { ...i, qty } : i)),
+        ),
+      clearCart: () => setCart([]),
+      toggleWishlist: (id) =>
+        setWishlist((w) => (w.includes(id) ? w.filter((x) => x !== id) : [...w, id])),
+      cartCount: cart.reduce((s, i) => s + i.qty, 0),
+      cartTotal: cart.reduce((s, i) => s + i.qty * i.product.price, 0),
     }),
-    removeFromCart: (cartItemId) => setCart((c) => c.filter((i) => i.id !== cartItemId)),
-    updateQty: (cartItemId, qty) => setCart((c) => qty <= 0 ? c.filter((i) => i.id !== cartItemId) : c.map((i) => i.id === cartItemId ? { ...i, qty } : i)),
-    toggleWishlist: (id) => setWishlist((w) => w.includes(id) ? w.filter((x) => x !== id) : [...w, id]),
-    cartCount: cart.reduce((s, i) => s + i.qty, 0),
-    cartTotal: cart.reduce((s, i) => s + i.qty * i.product.price, 0),
-  }), [cart, wishlist]);
+    [cart, wishlist],
+  );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

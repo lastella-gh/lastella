@@ -30,7 +30,12 @@ export function Hero() {
           className={`absolute inset-0 transition-opacity duration-[1400ms] ease-out ${idx === i ? "opacity-100" : "opacity-0"}`}
           aria-hidden={idx !== i}
         >
-          <img src={s.img} alt="" className="h-full w-full object-cover" fetchPriority={idx === 0 ? "high" : "auto"} />
+          <img
+            src={s.img}
+            alt=""
+            className="h-full w-full object-cover"
+            fetchPriority={idx === 0 ? "high" : "auto"}
+          />
           <div className="absolute inset-0 bg-gradient-to-r from-background/70 via-background/30 to-transparent" />
         </div>
       ))}
@@ -55,7 +60,9 @@ export function Hero() {
               className="group inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-8 py-4 text-sm font-semibold uppercase tracking-[0.15em] luxury-shadow hover:bg-rose-deep transition-all"
             >
               {t("hero.cta.shop")}
-              <ArrowRight className={`h-4 w-4 transition-transform group-hover:translate-x-1 ${dir === "rtl" ? "rotate-180 group-hover:-translate-x-1 group-hover:translate-x-0" : ""}`} />
+              <ArrowRight
+                className={`h-4 w-4 transition-transform group-hover:translate-x-1 ${dir === "rtl" ? "rotate-180 group-hover:-translate-x-1 group-hover:translate-x-0" : ""}`}
+              />
             </Link>
             <Link
               to="/shop"
@@ -80,10 +87,18 @@ export function Hero() {
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => go(-1)} className="grid place-items-center h-11 w-11 rounded-full glass hover:bg-primary hover:text-primary-foreground transition-all" aria-label="Previous">
+          <button
+            onClick={() => go(-1)}
+            className="grid place-items-center h-11 w-11 rounded-full glass hover:bg-primary hover:text-primary-foreground transition-all"
+            aria-label="Previous"
+          >
             <ChevronLeft className="h-5 w-5" />
           </button>
-          <button onClick={() => go(1)} className="grid place-items-center h-11 w-11 rounded-full glass hover:bg-primary hover:text-primary-foreground transition-all" aria-label="Next">
+          <button
+            onClick={() => go(1)}
+            className="grid place-items-center h-11 w-11 rounded-full glass hover:bg-primary hover:text-primary-foreground transition-all"
+            aria-label="Next"
+          >
             <ChevronRight className="h-5 w-5" />
           </button>
         </div>

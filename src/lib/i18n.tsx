@@ -18,7 +18,8 @@ const dict = {
     "brand.tagline": "Big Brand · Small Price",
     "hero.eyebrow": "The Lastella Edit · Autumn Collection",
     "hero.title": "Timeless luxury,\nwhispered in pink.",
-    "hero.subtitle": "Discover handcrafted jewelry that pairs the elegance of a heritage house with prices meant for everyday indulgence.",
+    "hero.subtitle":
+      "Discover handcrafted jewelry that pairs the elegance of a heritage house with prices meant for everyday indulgence.",
     "hero.cta.shop": "Shop the Collection",
     "hero.cta.explore": "Explore Categories",
     "hero.slide2.title": "Radiance,\nrefined in rose.",
@@ -36,7 +37,8 @@ const dict = {
     "section.flash.cta": "Shop the Sale",
     "section.testimonials.title": "Whispered by our clients",
     "section.newsletter.title": "Join the Lastella Circle",
-    "section.newsletter.subtitle": "Private previews, early sales, and a welcome gift with your first order.",
+    "section.newsletter.subtitle":
+      "Private previews, early sales, and a welcome gift with your first order.",
     "newsletter.placeholder": "Your email address",
     "newsletter.cta": "Subscribe",
     "cat.necklace": "Necklaces",
@@ -54,7 +56,8 @@ const dict = {
     "product.quickView": "Quick View",
     "product.viewAll": "View all",
     "footer.about": "About Lastella",
-    "footer.aboutText": "Lastella crafts luxury jewelry the world can afford — big-brand elegance, small-brand prices.",
+    "footer.aboutText":
+      "Lastella crafts luxury jewelry the world can afford — big-brand elegance, small-brand prices.",
     "footer.shop": "Shop",
     "footer.help": "Help",
     "footer.faq": "FAQ",
@@ -83,7 +86,8 @@ const dict = {
     "brand.tagline": "علامة كبرى · بسعر صغير",
     "hero.eyebrow": "مجموعة لاستيلا · خريف",
     "hero.title": "فخامة خالدة\nبلمسة وردية.",
-    "hero.subtitle": "اكتشفي مجوهرات مصنوعة يدويًا تجمع بين أناقة الدور العريقة وأسعار تليق بتدليل يومي.",
+    "hero.subtitle":
+      "اكتشفي مجوهرات مصنوعة يدويًا تجمع بين أناقة الدور العريقة وأسعار تليق بتدليل يومي.",
     "hero.cta.shop": "تسوقي المجموعة",
     "hero.cta.explore": "اكتشفي الفئات",
     "hero.slide2.title": "إشراق\nبلون الورد.",
@@ -128,8 +132,8 @@ const dict = {
     "footer.contact": "تواصل",
     "footer.follow": "تابعينا",
     "footer.rights": "جميع الحقوق محفوظة.",
-    "common.currency": "ر.ع.",
-    "common.free_shipping": "شحن مجاني داخل سلطنة عُمان للطلبات فوق ٢٠ ر.ع.",
+    "common.currency": "OMR",
+    "common.free_shipping": "شحن مجاني داخل سلطنة عُمان للطلبات فوق OMR 20.000",
     "common.lifetime": "ضمان مدى الحياة",
     "common.returns": "إرجاع خلال 7 أيام · الدفع عند الاستلام",
   },
@@ -150,12 +154,17 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>("ar");
 
   useEffect(() => {
-    const saved = typeof window !== "undefined" ? (localStorage.getItem("lastella-lang") as Lang | null) : null;
+    const saved =
+      typeof window !== "undefined" ? (localStorage.getItem("lastella-lang") as Lang | null) : null;
     if (saved === "ar" || saved === "en") {
       setLangState(saved);
     } else {
       setLangState("ar");
-      try { localStorage.setItem("lastella-lang", "ar"); } catch {}
+      try {
+        localStorage.setItem("lastella-lang", "ar");
+      } catch {
+        // Language persistence is optional when storage is unavailable.
+      }
     }
   }, []);
 
@@ -167,7 +176,11 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const setLang = (l: Lang) => {
     setLangState(l);
-    try { localStorage.setItem("lastella-lang", l); } catch {}
+    try {
+      localStorage.setItem("lastella-lang", l);
+    } catch {
+      // Language persistence is optional when storage is unavailable.
+    }
   };
 
   const value: I18nCtx = {

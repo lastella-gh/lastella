@@ -3,13 +3,6 @@ import { Minus, Plus, Trash2, ShoppingBag } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import { formatPrice } from "@/lib/currency";
-import {
-  FREE_SHIPPING_THRESHOLD_BAISA,
-  SHIPPING_BAISA,
-  VAT_RATE,
-  fromBaisa,
-  toBaisa,
-} from "@/lib/checkout";
 
 export const Route = createFileRoute("/cart")({
   head: () => ({
@@ -24,12 +17,6 @@ export const Route = createFileRoute("/cart")({
 function Cart() {
   const { t, lang } = useI18n();
   const { cart, updateQty, removeFromCart, cartTotal } = useStore();
-  const subtotalBaisa = toBaisa(cartTotal);
-  const shippingBaisa = subtotalBaisa > FREE_SHIPPING_THRESHOLD_BAISA ? 0 : SHIPPING_BAISA;
-  const taxBaisa = Math.round(subtotalBaisa * VAT_RATE);
-  const shipping = fromBaisa(shippingBaisa);
-  const tax = fromBaisa(taxBaisa);
-  const grand = fromBaisa(subtotalBaisa + shippingBaisa + taxBaisa);
 
   if (cart.length === 0) {
     return (
@@ -133,12 +120,15 @@ function Cart() {
               value={formatPrice(cartTotal)}
             />
             <Row
-              label={lang === "ar" ? "الشحن" : "Shipping"}
-              value={shipping === 0 ? (lang === "ar" ? "مجاني" : "Free") : formatPrice(shipping)}
+              label={lang === "ar" ? "التوصيل" : "Delivery"}
+              value={lang === "ar" ? "يحدد عند الدفع" : "Selected at checkout"}
             />
-            <Row label={lang === "ar" ? "الضريبة" : "Tax (5%)"} value={formatPrice(tax)} />
             <div className="border-t border-border pt-3 mt-4">
-              <Row large label={lang === "ar" ? "الإجمالي" : "Total"} value={formatPrice(grand)} />
+              <Row
+                large
+                label={lang === "ar" ? "المجموع الفرعي" : "Subtotal"}
+                value={formatPrice(cartTotal)}
+              />
             </div>
           </div>
           <Link

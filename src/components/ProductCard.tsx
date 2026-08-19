@@ -21,6 +21,7 @@ export function ProductCard({ product }: { product: Product }) {
     typeof product.name === "object" && product.name !== null
       ? product.name[lang] || product.name.en || product.name.ar || ""
       : String(product.name || "");
+  const requiresOptions = product.variants.length > 0;
 
   const ratingVal =
     typeof product.rating === "number" ? product.rating : Number(product.rating || 0);
@@ -58,6 +59,11 @@ export function ProductCard({ product }: { product: Product }) {
                 -{discount}%
               </span>
             )}
+            {!product.available && (
+              <span className="rounded-full bg-foreground text-background text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1">
+                Unavailable
+              </span>
+            )}
           </div>
           {/* Quick actions */}
           <div className="absolute top-3 end-3 flex flex-col gap-2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
@@ -84,13 +90,19 @@ export function ProductCard({ product }: { product: Product }) {
             <button
               onClick={(e) => {
                 e.preventDefault();
+                if (!product.available || requiresOptions) return;
                 addToCart(product);
                 toast.success(`${nameText} added to cart`);
               }}
-              className="w-full glass-dark rounded-full py-2.5 text-xs font-semibold uppercase tracking-[0.15em] flex items-center justify-center gap-2 hover:bg-primary hover:text-primary-foreground transition-all"
+              disabled={!product.available}
+              className="w-full glass-dark rounded-full py-2.5 text-xs font-semibold uppercase tracking-[0.15em] flex items-center justify-center gap-2 hover:bg-primary hover:text-primary-foreground transition-all disabled:cursor-not-allowed disabled:opacity-60"
             >
               <ShoppingBag className="h-3.5 w-3.5" />
-              {t("product.addToCart")}
+              {!product.available
+                ? "Unavailable"
+                : requiresOptions
+                  ? "Choose options"
+                  : t("product.addToCart")}
             </button>
           </div>
         </div>

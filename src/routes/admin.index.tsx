@@ -46,7 +46,7 @@ function Dashboard() {
           products: productsResult.count ?? 0,
           orders: orders.length,
           revenue: orders.reduce((sum, order) => sum + Number(order.total), 0),
-          pending: orders.filter((order) => order.status === "pending").length,
+          pending: orders.filter((order) => order.status === "awaiting_payment").length,
         });
         setRecent(orders.slice(0, 8));
       } catch (e) {
@@ -75,7 +75,7 @@ function Dashboard() {
       tint: "bg-emerald-500/10 text-emerald-600",
     },
     {
-      label: "Pending Orders",
+      label: "Awaiting Payment",
       value: stats.pending,
       Icon: TrendingUp,
       tint: "bg-amber-500/10 text-amber-600",

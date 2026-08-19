@@ -1,21 +1,36 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
+export type ProductKind = "jewelry" | "ring_box" | "general_box";
+
+export interface ProductVariant {
+  id: string;
+  size: string | null;
+  color: string | null;
+  available: boolean;
+}
+
 export interface Product {
   id: string;
   slug: string;
   name: { en: string; ar: string };
-  category: string;
+  category: "necklace" | "bracelet" | "ring" | "earrings" | "pendant" | "watch" | null;
+  kind: ProductKind;
+  brandId: string;
+  brand: { id: string; name: string; slug: string; visible: boolean } | null;
+  displayColor?: string;
   price: number;
   oldPrice?: number;
   image: string;
   rating: number;
   reviews: number;
   badge?: "new" | "sale" | "bestseller";
-  stock: number;
+  available: boolean;
+  visible: boolean;
   description?: string;
   images: string[];
   sizes: string[];
   colors: string[];
+  variants: ProductVariant[];
 }
 
 export interface CartItem {
@@ -24,12 +39,13 @@ export interface CartItem {
   qty: number;
   size?: string;
   color?: string;
+  variantId?: string;
 }
 
 interface StoreCtx {
   cart: CartItem[];
   wishlist: string[];
-  addToCart: (p: Product, qty?: number, size?: string, color?: string) => void;
+  addToCart: (p: Product, qty?: number, size?: string, color?: string, variantId?: string) => void;
   removeFromCart: (cartItemId: string) => void;
   updateQty: (cartItemId: string, qty: number) => void;
   clearCart: () => void;
@@ -48,7 +64,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       const c = localStorage.getItem("lastella-cart");
       const w = localStorage.getItem("lastella-wishlist");
-      if (c) setCart(JSON.parse(c));
+      if (c) {
+        const stored = JSON.parse(c) as CartItem[];
+        setCart(
+          stored.map((item) => ({
+            ...item,
+            product: {
+              ...item.product,
+              kind: item.product.kind ?? "jewelry",
+              brandId: item.product.brandId ?? "",
+              brand: item.product.brand ?? null,
+              available: item.product.available ?? true,
+              visible: item.product.visible ?? true,
+              variants: item.product.variants ?? [],
+            },
+          })),
+        );
+      }
       if (w) setWishlist(JSON.parse(w));
     } catch {
       // Storage can be unavailable in privacy modes.
@@ -73,12 +105,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     () => ({
       cart,
       wishlist,
-      addToCart: (p, qty = 1, size, color) =>
+      addToCart: (p, qty = 1, size, color, variantId) =>
         setCart((c) => {
           const cartItemId = `${p.id}-${size || "nosize"}-${color || "nocolor"}`;
           const ex = c.find((i) => i.id === cartItemId);
           if (ex) return c.map((i) => (i.id === cartItemId ? { ...i, qty: i.qty + qty } : i));
-          return [...c, { id: cartItemId, product: p, qty, size, color }];
+          return [...c, { id: cartItemId, product: p, qty, size, color, variantId }];
         }),
       removeFromCart: (cartItemId) => setCart((c) => c.filter((i) => i.id !== cartItemId)),
       updateQty: (cartItemId, qty) =>

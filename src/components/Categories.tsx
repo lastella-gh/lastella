@@ -6,18 +6,16 @@ import cr from "@/assets/cat-ring.jpg";
 import ce from "@/assets/cat-earrings.jpg";
 import cp from "@/assets/cat-pendant.jpg";
 import cw from "@/assets/cat-watch.jpg";
-import cg from "@/assets/cat-giftset.jpg";
 
 export function Categories() {
   const { t } = useI18n();
   const cats = [
-    { key: "cat.necklace", img: cn },
-    { key: "cat.bracelet", img: cb },
-    { key: "cat.ring", img: cr },
-    { key: "cat.earrings", img: ce },
-    { key: "cat.pendant", img: cp },
-    { key: "cat.watch", img: cw },
-    { key: "cat.giftset", img: cg },
+    { key: "cat.necklace", category: "necklace", img: cn },
+    { key: "cat.bracelet", category: "bracelet", img: cb },
+    { key: "cat.ring", category: "ring", img: cr },
+    { key: "cat.earrings", category: "earrings", img: ce },
+    { key: "cat.pendant", category: "pendant", img: cp },
+    { key: "cat.watch", category: "watch", img: cw },
   ] as const;
   return (
     <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20">
@@ -32,6 +30,7 @@ export function Categories() {
           <Link
             key={c.key}
             to="/shop"
+            search={{ category: c.category }}
             className="group snap-center shrink-0 flex flex-col items-center text-center"
           >
             <div className="relative overflow-hidden rounded-full h-32 w-32 sm:h-40 sm:w-40 lg:h-44 lg:w-44 bg-secondary ring-1 ring-border transition-all group-hover:ring-primary group-hover:ring-4 group-hover:ring-offset-4 group-hover:ring-offset-background">

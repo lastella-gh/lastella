@@ -125,7 +125,7 @@ function Dashboard({
                     <td>{new Date(o.created_at).toLocaleDateString()}</td>
                     <td>
                       <span className="capitalize inline-block rounded-full bg-primary/10 text-primary px-3 py-1 text-xs">
-                        {o.status}
+                        {o.status.replaceAll("_", " ")}
                       </span>
                     </td>
                     <td className="text-end font-semibold">{formatPrice(Number(o.total))}</td>

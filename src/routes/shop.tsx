@@ -5,8 +5,12 @@ import { ProductCard } from "@/components/ProductCard";
 import { useProducts } from "@/lib/products";
 import { useI18n } from "@/lib/i18n";
 import { formatPrice } from "@/lib/currency";
+import { z } from "zod";
 
 export const Route = createFileRoute("/shop")({
+  validateSearch: z.object({
+    category: z.enum(["necklace", "bracelet", "ring", "earrings", "pendant", "watch"]).optional(),
+  }),
   head: () => ({
     meta: [
       { title: "Shop · Lastella Luxury Jewelry" },
@@ -30,22 +34,39 @@ const sorts = ["newest", "price-asc", "price-desc", "rating"] as const;
 
 function Shop() {
   const { t, lang } = useI18n();
-  const [cat, setCat] = useState<(typeof cats)[number]>("all");
+  const search = Route.useSearch();
+  const [cat, setCat] = useState<(typeof cats)[number]>(search.category ?? "all");
+  const [brand, setBrand] = useState("all");
   const [sort, setSort] = useState<(typeof sorts)[number]>("newest");
   const [max, setMax] = useState(5000);
 
   const { data: rawProducts, isLoading } = useProducts();
+  const brands = useMemo(() => {
+    const products = Array.isArray(rawProducts) ? rawProducts : [];
+    return [
+      ...new Map(
+        products
+          .filter((product) => cat === "all" || product.category === cat)
+          .filter((product) => product.brand?.visible)
+          .map((product) => [product.brand!.slug, product.brand!]),
+      ).values(),
+    ].sort((a, b) => a.name.localeCompare(b.name));
+  }, [rawProducts, cat]);
 
   const filtered = useMemo(() => {
     const products = Array.isArray(rawProducts) ? rawProducts : [];
     let list = products.filter(
-      (p) => p && (cat === "all" || p.category === cat) && (p.price || 0) <= max,
+      (p) =>
+        p &&
+        (cat === "all" || p.category === cat) &&
+        (brand === "all" || p.brand?.slug === brand) &&
+        (p.price || 0) <= max,
     );
     if (sort === "price-asc") list = [...list].sort((a, b) => (a.price || 0) - (b.price || 0));
     if (sort === "price-desc") list = [...list].sort((a, b) => (b.price || 0) - (a.price || 0));
     if (sort === "rating") list = [...list].sort((a, b) => (b.rating || 0) - (a.rating || 0));
     return list;
-  }, [rawProducts, cat, sort, max]);
+  }, [rawProducts, cat, brand, sort, max]);
 
   const catLabel = (c: string) =>
     c === "all"
@@ -75,10 +96,35 @@ function Shop() {
               {cats.map((c) => (
                 <button
                   key={c}
-                  onClick={() => setCat(c)}
+                  onClick={() => {
+                    setCat(c);
+                    setBrand("all");
+                  }}
                   className={`text-start text-sm py-2 px-3 rounded-lg transition-all ${cat === c ? "bg-primary/10 text-primary font-medium" : "hover:bg-secondary text-foreground/80"}`}
                 >
                   {catLabel(c)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] mb-4">
+              {lang === "ar" ? "العلامة التجارية" : "Brand"}
+            </h3>
+            <div className="flex flex-col gap-1.5">
+              <button
+                onClick={() => setBrand("all")}
+                className={`text-start text-sm py-2 px-3 rounded-lg ${brand === "all" ? "bg-primary/10 text-primary font-medium" : "hover:bg-secondary"}`}
+              >
+                {lang === "ar" ? "الكل" : "All"}
+              </button>
+              {brands.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setBrand(item.slug)}
+                  className={`text-start text-sm py-2 px-3 rounded-lg ${brand === item.slug ? "bg-primary/10 text-primary font-medium" : "hover:bg-secondary"}`}
+                >
+                  {item.name}
                 </button>
               ))}
             </div>
@@ -90,15 +136,15 @@ function Shop() {
             <input
               type="range"
               aria-label={lang === "ar" ? "الحد الأقصى للسعر" : "Maximum price"}
-              min={50}
+              min={0}
               max={5000}
-              step={50}
+              step={1}
               value={max}
               onChange={(e) => setMax(Number(e.target.value))}
               className="w-full accent-primary"
             />
             <div className="flex justify-between text-xs text-muted-foreground mt-2">
-              <span>{formatPrice(50)}</span>
+              <span>{formatPrice(0)}</span>
               <span>{formatPrice(max)}</span>
             </div>
           </div>

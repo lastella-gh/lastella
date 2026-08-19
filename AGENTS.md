@@ -1,4 +1,5 @@
 <!-- LOVABLE:BEGIN -->
+
 > [!IMPORTANT]
 > This project is connected to [Lovable](https://lovable.dev). Avoid rewriting
 > published git history — force pushing, or rebasing/amending/squashing commits
@@ -7,6 +8,7 @@
 >
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
+
 <!-- LOVABLE:END -->
 
 ## Verify Changes
@@ -29,8 +31,9 @@
 - Products, auth, profiles, roles, and admin data use browser-to-Supabase access through RLS. Checkout is the exception: a TanStack server function uses the server-only Supabase client. Do not reintroduce MongoDB, mock auth, or localStorage order persistence.
 - Required local/deployment variables are `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, and server-only `SUPABASE_SECRET_KEY`; `SUPABASE_URL` is optional and defaults to `VITE_SUPABASE_URL`. `.env` and `supabase/.temp/` are ignored. Never add a secret or service-role key to a `VITE_` variable.
 - `src/integrations/supabase/client.ts` contains required handling for opaque publishable keys and lazy SSR-safe initialization; do not simplify it to a default `createClient` call.
-- Products are read from `public.products`; auth state comes from Supabase Auth; admin authorization comes from `public.user_roles`, never an email check in UI code.
-- Checkout must call the `submitCheckout` TanStack server function. `src/lib/checkout.server.ts` validates variants/stock and calculates money from database prices, then the service-only `public.commit_checkout_order` RPC locks products and atomically creates the order/items and decrements stock. Never expose that RPC to browser roles or replace checkout with direct client inserts.
+- Products are read from `public.products`, brands from `public.brands`, variants from `public.product_variants`, and homepage/bank configuration from singleton `public.store_settings`. Auth state comes from Supabase Auth; admin authorization comes from `public.user_roles`, never an email check in UI code.
+- Product `visible` controls catalog exposure while `available` controls purchasing. Variant availability is manual; legacy `active`, `stock`, `sizes`, and `colors` columns remain only for rollout/history compatibility and must not drive new behavior.
+- Checkout must call the `submitCheckout` TanStack server function. `src/lib/checkout.server.ts` validates visibility, product/variant availability, and database prices, then service-only `public.commit_checkout_order_v2` locks rows and atomically creates the order/items without decrementing stock. Never expose that RPC to browser roles or replace checkout with direct client inserts.
 - Product files use the public `product-images` bucket; only admins may list or mutate objects through Storage policies.
 - `src/integrations/supabase/types.ts` is generated. After schema changes run `supabase gen types --linked --lang typescript --schema public > src/integrations/supabase/types.ts`, then format and typecheck it.
 
@@ -40,10 +43,11 @@
 - Apply in order: `supabase db push --linked --dry-run`, review, `supabase db push --linked --yes`, regenerate types, then `supabase migration list --linked`.
 - Run remote Supabase CLI commands serially. Concurrent CLI queries/advisors rotate the temporary login role and can cause password failures or a temporary connection circuit breaker.
 - For database work, run both advisors serially: `supabase db advisors --linked --type security --level warn --fail-on none` and the same command with `--type performance`.
-- `public.commit_checkout_order` is `SECURITY DEFINER` but executable only by `service_role`; anonymous and authenticated clients must remain unable to call it directly.
+- Checkout commit RPCs are `SECURITY DEFINER` but executable only by `service_role`; anonymous and authenticated clients must remain unable to call them directly.
 
 ## Business Invariants
 
 - Currency is OMR with three decimal places. `src/lib/currency.tsx` renders the official Omani vector mark because its Unicode character is not yet broadly supported; do not replace it with the generic rial glyph.
-- Shipping is OMR 2.000 at totals up to OMR 20.000, free above that, with 5% VAT. These rules exist in both cart/checkout previews and authoritative `src/lib/checkout.server.ts`; change both sides together.
-- Application-owned localStorage keys are only `lastella-cart`, `lastella-wishlist`, and `lastella-lang`; Supabase Auth separately persists its managed session. Supabase owns products, users, roles, orders, stock, and images.
+- New products default to OMR 1.100 but admin prices remain editable. Jewelry categories are necklace, bracelet, ring, earrings, pendant, and watch; boxes use `ring_box` or `general_box` product kinds and no jewelry category.
+- Home Delivery is always OMR 2.000, Office Delivery is always OMR 1.000, and new orders have zero tax. Bank transfer is the only new-order payment method and new orders begin `awaiting_payment`. Keep previews and authoritative `src/lib/checkout.server.ts` calculations aligned.
+- Application-owned localStorage keys are only `lastella-cart`, `lastella-wishlist`, and `lastella-lang`; Supabase Auth separately persists its managed session. Supabase owns products, brands, variants, users, roles, orders, settings, and images.

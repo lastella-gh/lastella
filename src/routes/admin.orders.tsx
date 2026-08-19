@@ -9,7 +9,14 @@ export const Route = createFileRoute("/admin/orders")({
   component: AdminOrders,
 });
 
-const STATUSES = ["pending", "processing", "shipped", "delivered", "cancelled"] as const;
+const STATUSES = [
+  "awaiting_payment",
+  "pending",
+  "processing",
+  "shipped",
+  "delivered",
+  "cancelled",
+] as const;
 type Status = (typeof STATUSES)[number];
 
 interface Order {
@@ -21,7 +28,7 @@ interface Order {
   address: string;
   city: string;
   postal_code: string | null;
-  need_gift_box?: boolean;
+  delivery_type: "home" | "office" | null;
   subtotal: number;
   shipping: number;
   tax: number;
@@ -38,6 +45,8 @@ interface OrderItem {
   product_image: string | null;
   unit_price: number;
   quantity: number;
+  size: string | null;
+  color: string | null;
 }
 
 function AdminOrders() {
@@ -83,7 +92,7 @@ function AdminOrders() {
     try {
       const { data, error } = await supabase
         .from("order_items")
-        .select("id, product_name, product_image, unit_price, quantity")
+        .select("id, product_name, product_image, unit_price, quantity, size, color")
         .eq("order_id", orderId)
         .order("created_at");
       if (error) throw error;
@@ -149,7 +158,7 @@ function AdminOrders() {
                       </div>
                       <div>
                         <span className="capitalize inline-block rounded-full bg-primary/10 text-primary px-3 py-1 text-xs">
-                          {o.status}
+                          {o.status.replaceAll("_", " ")}
                         </span>
                       </div>
                       <div className="text-end font-semibold">{formatPrice(Number(o.total))}</div>
@@ -172,21 +181,12 @@ function AdminOrders() {
                           {o.postal_code ? ` – ${o.postal_code}` : ""}
                         </p>
 
-                        {/* Customized Packaging Box Status */}
-                        <div className="pt-2">
-                          {o.need_gift_box ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 text-rose-600 text-xs font-semibold border border-rose-500/20">
-                              🎁 Needs Customized Box (صندوق تغليف مخصص)
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary text-muted-foreground text-xs font-medium border border-border/40">
-                              📦 Standard Packaging (تغليف عادي)
-                            </span>
-                          )}
-                        </div>
-
                         <p className="text-xs uppercase tracking-wider mt-3">
                           Payment: <span className="font-medium">{o.payment_method}</span>
+                        </p>
+                        <p className="text-xs uppercase tracking-wider">
+                          Delivery:{" "}
+                          <span className="font-medium">{o.delivery_type ?? "Legacy order"}</span>
                         </p>
                         {o.notes && (
                           <p className="text-xs italic text-muted-foreground mt-2">"{o.notes}"</p>
@@ -202,7 +202,7 @@ function AdminOrders() {
                           >
                             {STATUSES.map((s) => (
                               <option key={s} value={s}>
-                                {s}
+                                {s.replaceAll("_", " ")}
                               </option>
                             ))}
                           </select>
@@ -228,6 +228,8 @@ function AdminOrders() {
                                 <p className="truncate">{it.product_name}</p>
                                 <p className="text-xs text-muted-foreground">
                                   ×{it.quantity} · {formatPrice(Number(it.unit_price))}
+                                  {it.size ? ` · ${it.size}` : ""}
+                                  {it.color ? ` · ${it.color}` : ""}
                                 </p>
                               </div>
                               <span className="font-semibold">
@@ -238,13 +240,10 @@ function AdminOrders() {
                         </div>
                         <div className="border-t border-border mt-4 pt-3 space-y-1 text-sm">
                           <Row label="Subtotal" value={formatPrice(Number(o.subtotal))} />
-                          <Row
-                            label="Shipping"
-                            value={
-                              Number(o.shipping) === 0 ? "Free" : formatPrice(Number(o.shipping))
-                            }
-                          />
-                          <Row label="Tax" value={formatPrice(Number(o.tax))} />
+                          <Row label="Delivery" value={formatPrice(Number(o.shipping))} />
+                          {Number(o.tax) > 0 && (
+                            <Row label="Historical tax" value={formatPrice(Number(o.tax))} />
+                          )}
                           <Row label="Total" value={formatPrice(Number(o.total))} bold />
                         </div>
                       </div>

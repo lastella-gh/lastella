@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { LayoutDashboard, Package, ShoppingBag, ArrowLeft } from "lucide-react";
+import { ArrowLeft, LayoutDashboard, Package, Settings, ShoppingBag, Tags } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/admin")({
@@ -62,7 +62,9 @@ function AdminLayout() {
   const nav = [
     { to: "/admin", label: "Dashboard", Icon: LayoutDashboard, exact: true },
     { to: "/admin/products", label: "Products", Icon: Package },
+    { to: "/admin/brands", label: "Brands", Icon: Tags },
     { to: "/admin/orders", label: "Orders", Icon: ShoppingBag },
+    { to: "/admin/settings", label: "Store Settings", Icon: Settings },
   ];
 
   return (
@@ -82,7 +84,7 @@ function AdminLayout() {
 
       <div className="grid lg:grid-cols-[240px_1fr] gap-8">
         <aside className="glass rounded-2xl p-3 h-fit">
-          <nav className="flex lg:flex-col gap-1">
+          <nav className="flex flex-wrap lg:flex-col gap-1">
             {nav.map(({ to, label, Icon, exact }) => {
               const active = exact ? location.pathname === to : location.pathname.startsWith(to);
               return (

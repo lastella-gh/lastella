@@ -5,6 +5,7 @@ import { ProductGrid } from "@/components/ProductGrid";
 import { Testimonials } from "@/components/Testimonials";
 import { useProducts } from "@/lib/products";
 import { useI18n } from "@/lib/i18n";
+import { HomepageVideo } from "@/components/HomepageVideo";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -18,6 +19,7 @@ function Index() {
   return (
     <>
       <Hero />
+      <HomepageVideo />
       <Categories />
       <ProductGrid
         eyebrow={t("section.trending.eyebrow")}

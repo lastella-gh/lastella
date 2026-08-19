@@ -1,116 +1,132 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Banknote, Gift, Truck } from "lucide-react";
+import { Building2, Gift, Home, Landmark } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useI18n } from "@/lib/i18n";
-import { useStore } from "@/lib/store";
-import { useAuth } from "@/lib/auth";
-import { formatPrice } from "@/lib/currency";
-import {
-  FREE_SHIPPING_THRESHOLD_BAISA,
-  SHIPPING_BAISA,
-  VAT_RATE,
-  fromBaisa,
-  toBaisa,
-} from "@/lib/checkout";
+import { deliveryFeeBaisa, fromBaisa, toBaisa } from "@/lib/checkout";
 import { submitCheckout } from "@/lib/checkout.functions";
+import { formatPrice } from "@/lib/currency";
+import { useAuth } from "@/lib/auth";
+import { useI18n } from "@/lib/i18n";
+import { useBoxProducts } from "@/lib/products";
+import { useStoreSettings } from "@/lib/settings";
+import { useStore, type Product } from "@/lib/store";
 
 export const Route = createFileRoute("/checkout")({
-  head: () => ({
-    meta: [
-      { title: "Checkout · Lastella" },
-      { name: "description", content: "Complete your Lastella order." },
-    ],
-  }),
+  head: () => ({ meta: [{ title: "Checkout · Lastella" }] }),
   component: Checkout,
 });
+
+type DeliveryType = "home" | "office";
 
 function Checkout() {
   const { lang } = useI18n();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { cart, cartTotal, clearCart } = useStore();
-  const subtotalBaisa = toBaisa(cartTotal);
-  const shippingBaisa = subtotalBaisa > FREE_SHIPPING_THRESHOLD_BAISA ? 0 : SHIPPING_BAISA;
-  const taxBaisa = Math.round(subtotalBaisa * VAT_RATE);
-  const shipping = fromBaisa(shippingBaisa);
-  const tax = fromBaisa(taxBaisa);
-  const grand = fromBaisa(subtotalBaisa + shippingBaisa + taxBaisa);
+  const { data: settings } = useStoreSettings();
+  const { data: ringBoxes = [] } = useBoxProducts("ring_box");
+  const { data: generalBoxes = [] } = useBoxProducts("general_box");
+  const [deliveryType, setDeliveryType] = useState<DeliveryType | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [payment, setPayment] = useState<"cod" | "bank">("cod");
-  const [needBox, setNeedBox] = useState<"yes" | "no">("yes");
+  const jewelry = cart.filter((item) => item.product.kind === "jewelry");
+  const hasRings = jewelry.some((item) => item.product.category === "ring");
+  const hasOtherJewelry = jewelry.some((item) => item.product.category !== "ring");
+  const cartProductIds = new Set(cart.map((item) => item.product.id));
+  const suggestedRingBoxes = ringBoxes.filter(
+    (product) => product.available && !cartProductIds.has(product.id),
+  );
+  const suggestedGeneralBoxes = generalBoxes.filter(
+    (product) => product.available && !cartProductIds.has(product.id),
+  );
+  const shippingBaisa = deliveryType ? deliveryFeeBaisa(deliveryType) : 0;
+  const total = fromBaisa(toBaisa(cartTotal) + shippingBaisa);
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (cart.length === 0) {
-      toast.error("Your cart is empty");
-      return;
-    }
-    const fd = new FormData(e.currentTarget);
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (cart.length === 0) return toast.error("Your cart is empty");
+    if (!deliveryType) return toast.error("Select Home or Office Delivery");
+    const form = new FormData(event.currentTarget);
     setSubmitting(true);
-
     try {
       const order = await submitCheckout({
         data: {
-          email: String(fd.get("email")),
-          fullName: `${fd.get("first_name")} ${fd.get("last_name")}`.trim(),
-          phone: String(fd.get("phone")),
-          address: String(fd.get("address")),
-          city: String(fd.get("city")),
-          postalCode: String(fd.get("postal_code") || ""),
-          country: String(fd.get("country") || "Sultanate of Oman"),
-          needGiftBox: needBox === "yes",
-          paymentMethod: payment,
-          notes: String(fd.get("notes") || ""),
-          items: cart.map(({ product, qty, size, color }) => ({
+          email: String(form.get("email")),
+          fullName: `${form.get("first_name")} ${form.get("last_name")}`.trim(),
+          phone: String(form.get("phone")),
+          address: String(form.get("address")),
+          city: String(form.get("city")),
+          postalCode: String(form.get("postal_code") || ""),
+          country: String(form.get("country") || "Sultanate of Oman"),
+          deliveryType,
+          notes: String(form.get("notes") || ""),
+          items: cart.map(({ product, qty, variantId, size, color }) => ({
             productId: product.id,
             quantity: qty,
+            variantId: variantId ?? null,
             size: size ?? null,
             color: color ?? null,
           })),
         },
       });
-      if (!order) throw new Error("The order could not be created");
-
       toast.success(`Order ${order.order_number} placed successfully!`);
       clearCart();
       await navigate({ to: user ? "/account" : "/shop" });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to place order";
-      toast.error(msg);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to place order");
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-12">
-      <h1 className="font-display text-4xl sm:text-5xl mb-10">
+    <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
+      <h1 className="mb-10 font-display text-4xl sm:text-5xl">
         {lang === "ar" ? "إتمام الشراء" : "Checkout"}
       </h1>
-      <form className="grid lg:grid-cols-[1fr_400px] gap-10" onSubmit={onSubmit}>
+      <form className="grid gap-10 lg:grid-cols-[1fr_400px]" onSubmit={onSubmit}>
         <div className="space-y-8">
           <Section title={lang === "ar" ? "معلومات التواصل" : "Contact Information"}>
             <Input
               name="email"
-              placeholder="Email address"
               type="email"
+              placeholder="Email address"
               defaultValue={user?.email ?? ""}
               required
             />
             <Input
               name="phone"
-              placeholder={
-                lang === "ar"
-                  ? "رقم الهاتف (مثال: +968 9X XXX XXX)"
-                  : "Phone number (e.g. +968 9X XXX XXX)"
-              }
+              placeholder={lang === "ar" ? "رقم الهاتف" : "Phone number"}
               required
             />
           </Section>
 
-          <Section title={lang === "ar" ? "عنوان الشحن (سلطنة عُمان)" : "Shipping Address (Oman)"}>
-            <div className="grid sm:grid-cols-2 gap-3">
+          <Section title={lang === "ar" ? "طريقة التوصيل" : "Delivery Method"}>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <DeliveryCard
+                type="home"
+                selected={deliveryType}
+                onSelect={setDeliveryType}
+                Icon={Home}
+                title="Home Delivery"
+                subtitle="Residential address"
+                price={2}
+              />
+              <DeliveryCard
+                type="office"
+                selected={deliveryType}
+                onSelect={setDeliveryType}
+                Icon={Building2}
+                title="Office Delivery"
+                subtitle="Workplace address"
+                price={1}
+              />
+            </div>
+          </Section>
+
+          <Section
+            title={lang === "ar" ? "عنوان التوصيل (سلطنة عُمان)" : "Delivery Address (Oman)"}
+          >
+            <div className="grid gap-3 sm:grid-cols-2">
               <Input
                 name="first_name"
                 placeholder={lang === "ar" ? "الاسم الأول" : "First name"}
@@ -124,194 +140,101 @@ function Checkout() {
             </div>
             <Input
               name="address"
-              placeholder={lang === "ar" ? "العنوان والمنطقة" : "Street address & region"}
+              placeholder={
+                deliveryType === "office"
+                  ? "Company, building and street"
+                  : "Street address and region"
+              }
               required
             />
-            <div className="grid sm:grid-cols-3 gap-3">
-              <Input
-                name="city"
-                placeholder={
-                  lang === "ar" ? "المدينة (مسقط، صلالة، صحار...)" : "City (Muscat, Salalah...)"
-                }
-                required
-              />
-              <Input
-                name="postal_code"
-                placeholder={lang === "ar" ? "الرمز البريدي" : "Postal code"}
-              />
-              <Input
-                name="country"
-                placeholder="Country"
-                defaultValue={lang === "ar" ? "سلطنة عُمان" : "Sultanate of Oman"}
-                readOnly
-              />
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Input name="city" placeholder="City" required />
+              <Input name="postal_code" placeholder="Postal code" />
+              <Input name="country" defaultValue="Sultanate of Oman" readOnly />
             </div>
             <textarea
               name="notes"
-              placeholder={
-                lang === "ar"
-                  ? "ملاحظات الإهداء أو الشحن (اختياري)"
-                  : "Gift or shipping notes (optional)"
-              }
-              className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm focus:outline-none focus:border-primary transition-colors min-h-[80px]"
+              placeholder="Gift or delivery notes (optional)"
+              className="min-h-20 w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none"
             />
           </Section>
 
-          {/* Customized Packaging Box Selection */}
-          <Section
-            title={
-              lang === "ar" ? "خيارات التغليف (صندوق مخصص)" : "Customized Packaging Box Option"
-            }
-          >
-            <div className="glass rounded-2xl p-5 border border-primary/30 bg-primary/5 space-y-4">
+          {hasRings && suggestedRingBoxes.length > 0 && (
+            <BoxSuggestions title="Ring Boxes" products={suggestedRingBoxes} />
+          )}
+          {hasOtherJewelry && suggestedGeneralBoxes.length > 0 && (
+            <BoxSuggestions title="General Gift Boxes" products={suggestedGeneralBoxes} />
+          )}
+
+          <Section title={lang === "ar" ? "طريقة الدفع" : "Payment Method"}>
+            <div className="rounded-2xl border border-primary/30 bg-primary/5 p-5">
               <div className="flex items-center gap-3">
-                <Gift className="h-6 w-6 text-primary shrink-0" />
+                <Landmark className="h-6 w-6 text-primary" />
                 <div>
-                  <h4 className="font-semibold text-sm">
-                    {lang === "ar"
-                      ? "هل تحتاج لإضافة صندوق التغليف المخصص؟"
-                      : "Do you need a Customized Luxury Packaging Box?"}
-                  </h4>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {lang === "ar"
-                      ? "اختر خيار التغليف المخصص المناسب لطلبك"
-                      : "Select customized packaging option for your order"}
+                  <p className="font-semibold">Bank Transfer</p>
+                  <p className="text-xs text-muted-foreground">
+                    Orders are processed after payment confirmation.
                   </p>
                 </div>
               </div>
-
-              <div className="grid sm:grid-cols-2 gap-3 pt-1">
-                <label
-                  className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${needBox === "yes" ? "border-primary bg-primary/10 font-medium" : "border-border hover:bg-secondary/40"}`}
-                >
-                  <input
-                    type="radio"
-                    name="gift_box"
-                    checked={needBox === "yes"}
-                    onChange={() => setNeedBox("yes")}
-                    className="accent-primary"
-                  />
-                  <div className="text-xs">
-                    <span className="block font-semibold">
-                      {lang === "ar"
-                        ? "نعم، أريد صندوق التغليف المخصص 🎁"
-                        : "Yes, Customized Luxury Box 🎁"}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground">
-                      {lang === "ar"
-                        ? "صندوق مخملي فاخر مخصص من لاستيلا"
-                        : "Customized velvet Lastella box"}
-                    </span>
-                  </div>
-                </label>
-
-                <label
-                  className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${needBox === "no" ? "border-primary bg-primary/10 font-medium" : "border-border hover:bg-secondary/40"}`}
-                >
-                  <input
-                    type="radio"
-                    name="gift_box"
-                    checked={needBox === "no"}
-                    onChange={() => setNeedBox("no")}
-                    className="accent-primary"
-                  />
-                  <div className="text-xs">
-                    <span className="block font-semibold">
-                      {lang === "ar" ? "لا، تغليف بريدي عادي 📦" : "No, Standard Packaging 📦"}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground">
-                      {lang === "ar" ? "كيس بريدي واقي كلاسيكي" : "Standard eco pouch"}
-                    </span>
-                  </div>
-                </label>
-              </div>
+              <dl className="mt-5 grid gap-2 text-sm sm:grid-cols-2">
+                <BankDetail label="Bank" value={settings?.bank_name} />
+                <BankDetail label="Account holder" value={settings?.bank_account_name} />
+                <div className="sm:col-span-2">
+                  <BankDetail label="Account / IBAN" value={settings?.bank_account_number} />
+                </div>
+              </dl>
+              <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+                {settings?.bank_instructions}
+              </p>
             </div>
-          </Section>
-          <Section title={lang === "ar" ? "طريقة الدفع" : "Payment Method"}>
-            {[
-              {
-                id: "cod",
-                Icon: Banknote,
-                label: lang === "ar" ? "الدفع عند الاستلام" : "Cash on Delivery",
-              },
-              { id: "bank", Icon: Truck, label: lang === "ar" ? "تحويل بنكي" : "Bank Transfer" },
-            ].map(({ id, Icon, label }) => (
-              <label
-                key={id}
-                className={`flex items-center gap-3 p-4 rounded-2xl border cursor-pointer transition-all ${payment === id ? "border-primary bg-primary/5" : "border-border hover:border-primary"}`}
-              >
-                <input
-                  type="radio"
-                  name="pay"
-                  checked={payment === id}
-                  onChange={() => setPayment(id as "cod" | "bank")}
-                  className="accent-primary"
-                />
-                <Icon className="h-5 w-5 text-primary" />
-                <span className="text-sm font-medium">{label}</span>
-              </label>
-            ))}
           </Section>
         </div>
 
-        <aside className="glass rounded-2xl p-6 h-fit sticky top-32">
-          <h2 className="font-display text-2xl mb-6">{lang === "ar" ? "ملخص" : "Summary"}</h2>
-          <div className="space-y-3 max-h-64 overflow-auto pr-2">
+        <aside className="glass sticky top-32 h-fit rounded-2xl p-6">
+          <h2 className="mb-6 font-display text-2xl">{lang === "ar" ? "ملخص" : "Summary"}</h2>
+          <div className="max-h-64 space-y-3 overflow-auto pr-2">
             {cart.map(({ id, product, qty, size, color }) => (
               <div key={id} className="flex gap-3 text-sm">
-                <div className="h-14 w-14 rounded-lg overflow-hidden bg-secondary shrink-0">
-                  <img src={product.image} alt="" className="h-full w-full object-cover" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="truncate">{product.name[lang]}</p>
-                  <p className="text-muted-foreground text-xs">
+                <img
+                  src={product.image}
+                  alt=""
+                  className="h-14 w-14 shrink-0 rounded-lg object-cover"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate">{product.name[lang] || product.name.en}</p>
+                  <p className="text-xs text-muted-foreground">
                     ×{qty}
                     {size ? ` | ${size}` : ""}
                     {color ? ` | ${color}` : ""}
                   </p>
                 </div>
-                <span className="font-medium whitespace-nowrap">
+                <span className="whitespace-nowrap font-medium">
                   {formatPrice(product.price * qty)}
                 </span>
               </div>
             ))}
           </div>
-          <div className="border-t border-border mt-6 pt-4 space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Subtotal</span>
-              <span>{formatPrice(cartTotal)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Shipping</span>
-              <span>{shipping === 0 ? "Free" : formatPrice(shipping)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Tax</span>
-              <span>{formatPrice(tax)}</span>
-            </div>
-            <div className="flex justify-between font-display text-lg pt-3 border-t border-border mt-2">
-              <span>Total</span>
-              <span>{formatPrice(grand)}</span>
-            </div>
+          <div className="mt-6 space-y-2 border-t border-border pt-4 text-sm">
+            <SummaryRow label="Subtotal" value={formatPrice(cartTotal)} />
+            <SummaryRow
+              label="Delivery"
+              value={deliveryType ? formatPrice(fromBaisa(shippingBaisa)) : "Select method"}
+            />
+            <SummaryRow label="Total" value={formatPrice(total)} total />
           </div>
           <button
             type="submit"
-            disabled={submitting}
-            className="mt-6 w-full rounded-full bg-primary text-primary-foreground px-6 py-4 text-sm font-semibold uppercase tracking-[0.15em] hover:bg-rose-deep transition-all disabled:opacity-60"
+            disabled={submitting || !deliveryType}
+            className="mt-6 w-full rounded-full bg-primary px-6 py-4 text-sm font-semibold uppercase tracking-[0.15em] text-primary-foreground disabled:opacity-50"
           >
-            {submitting
-              ? lang === "ar"
-                ? "جاري..."
-                : "Placing..."
-              : lang === "ar"
-                ? "تأكيد الطلب"
-                : "Place Order"}
+            {submitting ? "Placing..." : "Place Order"}
           </button>
           <Link
             to="/cart"
             className="mt-3 block text-center text-xs text-muted-foreground hover:text-primary"
           >
-            ← {lang === "ar" ? "الرجوع للسلة" : "Back to cart"}
+            ← Back to cart
           </Link>
         </aside>
       </form>
@@ -321,10 +244,10 @@ function Checkout() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div>
-      <h3 className="font-display text-xl mb-4">{title}</h3>
+    <section>
+      <h3 className="mb-4 font-display text-xl">{title}</h3>
       <div className="space-y-3">{children}</div>
-    </div>
+    </section>
   );
 }
 
@@ -332,7 +255,102 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm focus:outline-none focus:border-primary transition-colors"
+      className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none"
     />
+  );
+}
+
+function DeliveryCard({
+  type,
+  selected,
+  onSelect,
+  Icon,
+  title,
+  subtitle,
+  price,
+}: {
+  type: DeliveryType;
+  selected: DeliveryType | null;
+  onSelect: (type: DeliveryType) => void;
+  Icon: typeof Home;
+  title: string;
+  subtitle: string;
+  price: number;
+}) {
+  return (
+    <label
+      className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-4 ${selected === type ? "border-primary bg-primary/5" : "border-border"}`}
+    >
+      <input
+        type="radio"
+        name="delivery_type"
+        checked={selected === type}
+        onChange={() => onSelect(type)}
+        className="accent-primary"
+      />
+      <Icon className="h-5 w-5 text-primary" />
+      <span className="flex-1">
+        <span className="block text-sm font-medium">{title}</span>
+        <span className="text-xs text-muted-foreground">{subtitle}</span>
+      </span>
+      <span className="font-semibold">{formatPrice(price)}</span>
+    </label>
+  );
+}
+
+function BoxSuggestions({ title, products }: { title: string; products: Product[] }) {
+  return (
+    <Section title={title}>
+      <div className="flex gap-4 overflow-x-auto pb-2">
+        {products.map((product) => (
+          <Link
+            key={product.id}
+            to="/product/$slug"
+            params={{ slug: product.slug }}
+            className="w-40 shrink-0 overflow-hidden rounded-2xl border border-border bg-background transition hover:border-primary"
+          >
+            <img
+              src={product.image}
+              alt={product.name.en}
+              className="aspect-square w-full object-cover"
+            />
+            <div className="p-3">
+              <p className="truncate text-sm font-medium">{product.brand?.name}</p>
+              <p className="mt-1 text-xs text-primary">{formatPrice(product.price)}</p>
+            </div>
+          </Link>
+        ))}
+      </div>
+      <p className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Gift className="h-4 w-4" /> Select a box to view its product page.
+      </p>
+    </Section>
+  );
+}
+
+function BankDetail({ label, value }: { label: string; value?: string }) {
+  return (
+    <div>
+      <dt className="text-xs uppercase tracking-wider text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 font-medium">{value ?? "To be confirmed"}</dd>
+    </div>
+  );
+}
+function SummaryRow({
+  label,
+  value,
+  total,
+}: {
+  label: string;
+  value: React.ReactNode;
+  total?: boolean;
+}) {
+  return (
+    <div
+      className={`flex justify-between ${total ? "mt-2 border-t border-border pt-3 font-display text-lg" : ""}`}
+    >
+      <span className={total ? "" : "text-muted-foreground"}>{label}</span>
+      <span>{value}</span>
+    </div>
   );
 }

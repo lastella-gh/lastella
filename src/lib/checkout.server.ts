@@ -2,24 +2,16 @@ import "@tanstack/react-start/server-only";
 
 import { getRequestHeader } from "@tanstack/react-start/server";
 import { getSupabaseServerClient } from "@/integrations/supabase/server-client.server";
-import {
-  FREE_SHIPPING_THRESHOLD_BAISA,
-  SHIPPING_BAISA,
-  VAT_RATE,
-  fromBaisa,
-  toBaisa,
-  type CheckoutInput,
-} from "@/lib/checkout";
+import { deliveryFeeBaisa, fromBaisa, toBaisa, type CheckoutInput } from "@/lib/checkout";
 
 type Product = {
   id: string;
   name_en: string;
   image: string;
   price: number;
-  stock: number;
-  active: boolean;
-  sizes: string[];
-  colors: string[];
+  visible: boolean;
+  available: boolean;
+  variants: { id: string; size: string | null; color: string | null; available: boolean }[];
 };
 
 export async function createCheckoutOrder(input: CheckoutInput) {
@@ -34,7 +26,9 @@ export async function createCheckoutOrder(input: CheckoutInput) {
   const productIds = [...quantities.keys()];
   const { data, error } = await supabase
     .from("products")
-    .select("id, name_en, image, price, stock, active, sizes, colors")
+    .select(
+      "id, name_en, image, price, visible, available, variants:product_variants(id, size, color, available)",
+    )
     .in("id", productIds);
   if (error) throw new Error(`Unable to load products: ${error.message}`);
   if (data.length !== productIds.length) throw new Error("One or more products are unavailable");
@@ -44,20 +38,19 @@ export async function createCheckoutOrder(input: CheckoutInput) {
 
   for (const [productId, quantity] of quantities) {
     const product = products.get(productId);
-    if (!product?.active) throw new Error("One or more products are unavailable");
-    if (quantity > 100 || quantity > product.stock) {
-      throw new Error(`Insufficient stock for ${product.name_en}`);
+    if (!product?.visible || !product.available) {
+      throw new Error(`Product is unavailable: ${product?.name_en ?? productId}`);
     }
+    if (quantity > 100) throw new Error(`Invalid quantity for ${product.name_en}`);
     subtotalBaisa += toBaisa(product.price) * quantity;
   }
 
-  const commitItems = aggregateVariants(input, products);
-  const shippingBaisa = subtotalBaisa > FREE_SHIPPING_THRESHOLD_BAISA ? 0 : SHIPPING_BAISA;
-  const taxBaisa = Math.round(subtotalBaisa * VAT_RATE);
-  const totalBaisa = subtotalBaisa + shippingBaisa + taxBaisa;
+  const commitItems = validateAndBuildItems(input, products);
+  const shippingBaisa = deliveryFeeBaisa(input.deliveryType);
+  const totalBaisa = subtotalBaisa + shippingBaisa;
 
   const { data: order, error: commitError } = await supabase
-    .rpc("commit_checkout_order", {
+    .rpc("commit_checkout_order_v2", {
       // Generated RPC argument types do not represent nullable PostgreSQL parameters.
       p_user_id: userId as string,
       p_email: input.email.toLowerCase(),
@@ -67,12 +60,10 @@ export async function createCheckoutOrder(input: CheckoutInput) {
       p_city: input.city,
       p_postal_code: input.postalCode,
       p_country: input.country,
-      p_payment_method: input.paymentMethod,
+      p_delivery_type: input.deliveryType,
       p_notes: input.notes,
-      p_need_gift_box: input.needGiftBox,
       p_subtotal: fromBaisa(subtotalBaisa),
       p_shipping: fromBaisa(shippingBaisa),
-      p_tax: fromBaisa(taxBaisa),
       p_total: fromBaisa(totalBaisa),
       p_items: commitItems,
     })
@@ -82,48 +73,49 @@ export async function createCheckoutOrder(input: CheckoutInput) {
   return order;
 }
 
-function aggregateVariants(input: CheckoutInput, products: Map<string, Product>) {
-  const variants = new Map<
+function validateAndBuildItems(input: CheckoutInput, products: Map<string, Product>) {
+  const items = new Map<
     string,
-    {
-      product_id: string;
-      quantity: number;
-      size: string | null;
-      color: string | null;
-      unit_price: number;
-    }
+    { product_id: string; variant_id: string | null; quantity: number; unit_price: number }
   >();
 
   for (const item of input.items) {
     const product = products.get(item.productId);
     if (!product) throw new Error("Product is unavailable");
-    validateVariant(product, item.size, item.color);
+    if (product.variants.length > 0) {
+      const variant = product.variants.find(
+        (candidate) =>
+          candidate.id === item.variantId ||
+          (!item.variantId && candidate.size === item.size && candidate.color === item.color),
+      );
+      if (!variant?.available) throw new Error(`Product option is unavailable: ${product.name_en}`);
+    } else if (item.variantId) {
+      throw new Error(`Invalid product option: ${product.name_en}`);
+    }
 
-    const key = `${item.productId}\u0000${item.size ?? ""}\u0000${item.color ?? ""}`;
-    const existing = variants.get(key);
+    const resolvedVariantId =
+      product.variants.length > 0
+        ? (product.variants.find(
+            (candidate) =>
+              candidate.id === item.variantId ||
+              (!item.variantId && candidate.size === item.size && candidate.color === item.color),
+          )?.id ?? null)
+        : null;
+    const key = `${item.productId}\u0000${resolvedVariantId ?? ""}`;
+    const existing = items.get(key);
     if (existing) {
       existing.quantity += item.quantity;
     } else {
-      variants.set(key, {
+      items.set(key, {
         product_id: item.productId,
+        variant_id: resolvedVariantId,
         quantity: item.quantity,
-        size: item.size,
-        color: item.color,
         unit_price: product.price,
       });
     }
   }
 
-  return [...variants.values()];
-}
-
-function validateVariant(product: Product, size: string | null, color: string | null) {
-  if (product.sizes.length > 0 && (!size || !product.sizes.includes(size))) {
-    throw new Error(`Invalid size for ${product.name_en}`);
-  }
-  if (product.colors.length > 0 && (!color || !product.colors.includes(color))) {
-    throw new Error(`Invalid color for ${product.name_en}`);
-  }
+  return [...items.values()];
 }
 
 async function getAuthenticatedUserId(

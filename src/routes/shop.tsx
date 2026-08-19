@@ -4,7 +4,6 @@ import { SlidersHorizontal } from "lucide-react";
 import { ProductCard } from "@/components/ProductCard";
 import { useProducts } from "@/lib/products";
 import { useI18n } from "@/lib/i18n";
-import { formatPrice } from "@/lib/currency";
 import { z } from "zod";
 
 export const Route = createFileRoute("/shop")({
@@ -38,7 +37,6 @@ function Shop() {
   const [cat, setCat] = useState<(typeof cats)[number]>(search.category ?? "all");
   const [brand, setBrand] = useState("all");
   const [sort, setSort] = useState<(typeof sorts)[number]>("newest");
-  const [max, setMax] = useState(5000);
 
   const { data: rawProducts, isLoading } = useProducts();
   const brands = useMemo(() => {
@@ -57,16 +55,13 @@ function Shop() {
     const products = Array.isArray(rawProducts) ? rawProducts : [];
     let list = products.filter(
       (p) =>
-        p &&
-        (cat === "all" || p.category === cat) &&
-        (brand === "all" || p.brand?.slug === brand) &&
-        (p.price || 0) <= max,
+        p && (cat === "all" || p.category === cat) && (brand === "all" || p.brand?.slug === brand),
     );
     if (sort === "price-asc") list = [...list].sort((a, b) => (a.price || 0) - (b.price || 0));
     if (sort === "price-desc") list = [...list].sort((a, b) => (b.price || 0) - (a.price || 0));
     if (sort === "rating") list = [...list].sort((a, b) => (b.rating || 0) - (a.rating || 0));
     return list;
-  }, [rawProducts, cat, brand, sort, max]);
+  }, [rawProducts, cat, brand, sort]);
 
   const catLabel = (c: string) =>
     c === "all"
@@ -127,25 +122,6 @@ function Shop() {
                   {item.name}
                 </button>
               ))}
-            </div>
-          </div>
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] mb-4">
-              {lang === "ar" ? "السعر" : "Price"}
-            </h3>
-            <input
-              type="range"
-              aria-label={lang === "ar" ? "الحد الأقصى للسعر" : "Maximum price"}
-              min={0}
-              max={5000}
-              step={1}
-              value={max}
-              onChange={(e) => setMax(Number(e.target.value))}
-              className="w-full accent-primary"
-            />
-            <div className="flex justify-between text-xs text-muted-foreground mt-2">
-              <span>{formatPrice(0)}</span>
-              <span>{formatPrice(max)}</span>
             </div>
           </div>
         </aside>

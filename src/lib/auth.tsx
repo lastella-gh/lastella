@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -20,20 +20,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [authReady, setAuthReady] = useState(false);
+  const userIdRef = useRef<string | null>(null);
+  const userId = user?.id ?? null;
 
   useEffect(() => {
     let active = true;
     supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
+      userIdRef.current = data.session?.user.id ?? null;
       setSession(data.session);
       setUser(data.session?.user ?? null);
       setAuthReady(true);
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!active) return;
-      setLoading(true);
+      const nextUser = nextSession?.user ?? null;
+      const userChanged = userIdRef.current !== (nextUser?.id ?? null);
+      userIdRef.current = nextUser?.id ?? null;
+      if (userChanged) setLoading(true);
       setSession(nextSession);
-      setUser(nextSession?.user ?? null);
+      setUser((currentUser) => (currentUser?.id === nextUser?.id ? currentUser : nextUser));
       setAuthReady(true);
     });
 
@@ -47,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!authReady) return;
     let active = true;
 
-    if (!user) {
+    if (!userId) {
       setIsAdmin(false);
       setLoading(false);
       return;
@@ -56,7 +62,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase
       .from("user_roles")
       .select("role")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
+      .eq("role", "admin")
       .maybeSingle()
       .then(({ data, error }) => {
         if (!active) return;
@@ -68,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       active = false;
     };
-  }, [authReady, user]);
+  }, [authReady, userId]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });

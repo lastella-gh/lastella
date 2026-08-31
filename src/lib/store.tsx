@@ -9,11 +9,14 @@ export interface ProductVariant {
   available: boolean;
 }
 
+export type ProductCategory =
+  "necklace" | "bracelet" | "bangle" | "anklet" | "ring" | "earrings" | "pendant" | "watch";
+
 export interface Product {
   id: string;
   slug: string;
   name: { en: string; ar: string };
-  category: "necklace" | "bracelet" | "ring" | "earrings" | "pendant" | "watch" | null;
+  category: ProductCategory | null;
   kind: ProductKind;
   brandId: string;
   brand: { id: string; name: string; slug: string; visible: boolean } | null;
@@ -24,6 +27,8 @@ export interface Product {
   rating: number;
   reviews: number;
   badge?: "new" | "sale" | "bestseller";
+  isNewArrival: boolean;
+  isBestSeller: boolean;
   available: boolean;
   visible: boolean;
   description?: string;

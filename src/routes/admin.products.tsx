@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ImagePlus, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +32,8 @@ const CATEGORIES: ProductCategory[] = [
   "earrings",
   "pendant",
   "watch",
+  "bangle",
+  "anklet",
 ];
 
 function AdminProducts() {
@@ -78,6 +80,15 @@ function AdminProducts() {
     if (error) {
       toast.error("Product could not be deleted");
       return;
+    }
+    const imagePaths = [
+      ...new Set([product.image, ...product.images].map(bucketImagePath).filter(Boolean)),
+    ] as string[];
+    if (imagePaths.length > 0) {
+      const { error: cleanupError } = await supabase.storage
+        .from("product-images")
+        .remove(imagePaths);
+      if (cleanupError) toast.error("Product deleted, but some image files could not be removed");
     }
     toast.success("Product deleted");
     await refresh();
@@ -305,7 +316,21 @@ function ProductForm({
   const [mainPreview, setMainPreview] = useState(initial?.image ?? "");
   const [galleryUrls, setGalleryUrls] = useState(initial?.images ?? []);
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
+  const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
+  const [removedExistingPaths, setRemovedExistingPaths] = useState<string[]>([]);
+  const [isNewArrival, setIsNewArrival] = useState(initial?.is_new_arrival ?? false);
+  const [isBestSeller, setIsBestSeller] = useState(initial?.is_best_seller ?? false);
   const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState("Saving...");
+  const mainPreviewRef = useRef(mainPreview);
+  const galleryPreviewsRef = useRef(galleryPreviews);
+
+  useEffect(() => {
+    return () => {
+      revokeBlobUrl(mainPreviewRef.current);
+      galleryPreviewsRef.current.forEach(revokeBlobUrl);
+    };
+  }, []);
 
   function updateName(value: string) {
     setNameEn(value);
@@ -314,16 +339,33 @@ function ProductForm({
 
   function chooseMainImage(file: File | undefined) {
     if (!file || !validateImage(file)) return;
+    revokeBlobUrl(mainPreviewRef.current);
+    const preview = URL.createObjectURL(file);
+    mainPreviewRef.current = preview;
     setMainFile(file);
-    setMainPreview(URL.createObjectURL(file));
+    setMainPreview(preview);
+    if (initial?.image) markRemovedPath(initial.image);
   }
 
-  function addGallery(files: FileList | null) {
-    if (!files) return;
-    setGalleryFiles((current) => [
-      ...current,
-      ...Array.from(files).filter((file) => validateImage(file)),
-    ]);
+  function addGallery(files: File[]) {
+    const validFiles = files.filter(validateImage);
+    const existing = new Set(galleryFiles.map(fileIdentity));
+    const added = validFiles.filter((file) => {
+      const identity = fileIdentity(file);
+      if (existing.has(identity)) return false;
+      existing.add(identity);
+      return true;
+    });
+    const previews = added.map((file) => URL.createObjectURL(file));
+    galleryPreviewsRef.current = [...galleryPreviewsRef.current, ...previews];
+    setGalleryPreviews(galleryPreviewsRef.current);
+    setGalleryFiles((current) => [...current, ...added]);
+  }
+
+  function markRemovedPath(url: string) {
+    const path = bucketImagePath(url);
+    if (path)
+      setRemovedExistingPaths((current) => (current.includes(path) ? current : [...current, path]));
   }
 
   function updateVariant(index: number, patch: Partial<VariantDraft>) {
@@ -363,17 +405,20 @@ function ProductForm({
     let productPersisted = false;
     let createdProductId: string | null = null;
     setSaving(true);
+    setSaveStatus("Saving...");
 
     try {
       let image = initial?.image ?? "";
       if (mainFile) {
+        setSaveStatus("Uploading main image...");
         const uploaded = await uploadImage(mainFile);
         image = uploaded.url;
         uploadedPaths.push(uploaded.path);
       }
 
       const uploadedGallery: string[] = [];
-      for (const file of galleryFiles) {
+      for (const [index, file] of galleryFiles.entries()) {
+        setSaveStatus(`Uploading images (${index + 1}/${galleryFiles.length})...`);
         const uploaded = await uploadImage(file);
         uploadedGallery.push(uploaded.url);
         uploadedPaths.push(uploaded.path);
@@ -398,6 +443,8 @@ function ProductForm({
         images: [...galleryUrls, ...uploadedGallery],
         available,
         visible,
+        is_new_arrival: isNewArrival,
+        is_best_seller: isBestSeller,
       };
 
       let productId: string;
@@ -424,6 +471,14 @@ function ProductForm({
         initial?.variants ?? [],
       );
 
+      if (removedExistingPaths.length > 0) {
+        const retainedPaths = new Set(
+          [image, ...galleryUrls, ...uploadedGallery].map(bucketImagePath).filter(Boolean),
+        );
+        const paths = removedExistingPaths.filter((path) => !retainedPaths.has(path));
+        if (paths.length > 0) await supabase.storage.from("product-images").remove(paths);
+      }
+
       toast.success(initial ? "Product updated" : "Product created");
       onSaved();
     } catch (error) {
@@ -431,13 +486,20 @@ function ProductForm({
         await supabase.from("products").delete().eq("id", createdProductId);
         productPersisted = false;
       }
-      if (!productPersisted && uploadedPaths.length > 0) {
+      if (initial && productPersisted && uploadedPaths.length > 0) {
+        await supabase
+          .from("products")
+          .update({ image: initial.image, images: initial.images })
+          .eq("id", initial.id);
+      }
+      if (uploadedPaths.length > 0) {
         await supabase.storage.from("product-images").remove(uploadedPaths);
       }
       const message = error instanceof Error ? error.message : "Failed to save product";
       toast.error(message);
     } finally {
       setSaving(false);
+      setSaveStatus("Saving...");
     }
   }
 
@@ -605,7 +667,11 @@ function ProductForm({
                   <input
                     type="file"
                     accept="image/png,image/jpeg,image/webp"
-                    onChange={(event) => chooseMainImage(event.target.files?.[0])}
+                    onChange={(event) => {
+                      const file = event.currentTarget.files?.[0];
+                      event.currentTarget.value = "";
+                      chooseMainImage(file);
+                    }}
                     className="hidden"
                   />
                   {mainPreview ? (
@@ -623,20 +689,26 @@ function ProductForm({
                     <ImageThumbnail
                       key={url}
                       src={url}
-                      onRemove={() =>
-                        setGalleryUrls((current) => current.filter((item) => item !== url))
-                      }
+                      onRemove={() => {
+                        markRemovedPath(url);
+                        setGalleryUrls((current) => current.filter((item) => item !== url));
+                      }}
                     />
                   ))}
                   {galleryFiles.map((file, index) => (
                     <ImageThumbnail
-                      key={`${file.name}-${file.lastModified}-${index}`}
-                      src={URL.createObjectURL(file)}
-                      onRemove={() =>
+                      key={fileIdentity(file)}
+                      src={galleryPreviews[index]}
+                      onRemove={() => {
+                        revokeBlobUrl(galleryPreviewsRef.current[index]);
+                        galleryPreviewsRef.current = galleryPreviewsRef.current.filter(
+                          (_, itemIndex) => itemIndex !== index,
+                        );
+                        setGalleryPreviews(galleryPreviewsRef.current);
                         setGalleryFiles((current) =>
                           current.filter((_, itemIndex) => itemIndex !== index),
-                        )
-                      }
+                        );
+                      }}
                     />
                   ))}
                   <label className="flex h-24 w-24 cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-primary/20 text-muted-foreground transition-colors hover:bg-secondary">
@@ -645,8 +717,9 @@ function ProductForm({
                       multiple
                       accept="image/png,image/jpeg,image/webp"
                       onChange={(event) => {
-                        addGallery(event.target.files);
-                        event.target.value = "";
+                        const files = Array.from(event.currentTarget.files ?? []);
+                        event.currentTarget.value = "";
+                        addGallery(files);
                       }}
                       className="hidden"
                     />
@@ -745,6 +818,18 @@ function ProductForm({
                 title="Visible"
                 description="Show this product in the storefront."
               />
+              <CheckboxCard
+                checked={isNewArrival}
+                onChange={setIsNewArrival}
+                title="New Arrival"
+                description="Feature this product as a new arrival."
+              />
+              <CheckboxCard
+                checked={isBestSeller}
+                onChange={setIsBestSeller}
+                title="Best Seller"
+                description="Feature this product as a best seller."
+              />
             </div>
           </div>
         </div>
@@ -761,7 +846,7 @@ function ProductForm({
             disabled={saving}
             className="rounded-full bg-primary px-8 py-2.5 text-sm font-semibold uppercase tracking-wider text-primary-foreground hover:bg-rose-deep disabled:opacity-60"
           >
-            {saving ? "Saving..." : "Save Product"}
+            {saving ? saveStatus : "Save Product"}
           </button>
         </div>
       </form>
@@ -898,6 +983,26 @@ function validateImage(file: File) {
     return false;
   }
   return true;
+}
+
+function fileIdentity(file: File) {
+  return `${file.name}\u0000${file.size}\u0000${file.lastModified}\u0000${file.type}`;
+}
+
+function revokeBlobUrl(url: string | undefined) {
+  if (url?.startsWith("blob:")) URL.revokeObjectURL(url);
+}
+
+function bucketImagePath(url: string) {
+  try {
+    const parsed = new URL(url);
+    const prefix = "/storage/v1/object/public/product-images/";
+    if (!parsed.pathname.startsWith(prefix)) return null;
+    const path = decodeURIComponent(parsed.pathname.slice(prefix.length));
+    return path.startsWith("products/") && !path.includes("..") ? path : null;
+  } catch {
+    return null;
+  }
 }
 
 function optionalText(value: FormDataEntryValue | null) {

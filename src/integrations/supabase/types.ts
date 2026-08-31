@@ -115,12 +115,22 @@ export type Database = {
           need_gift_box: boolean;
           notes: string | null;
           order_number: string;
+          payment_intent_id: string | null;
           payment_method: string;
+          payment_proof_content_type: string | null;
+          payment_proof_name: string | null;
+          payment_proof_path: string | null;
+          payment_proof_size: number | null;
+          payment_rejection_reason: string | null;
+          payment_reviewed_at: string | null;
+          payment_reviewed_by: string | null;
+          payment_status: Database["public"]["Enums"]["payment_status"];
           phone: string | null;
           postal_code: string | null;
           shipping: number;
           status: Database["public"]["Enums"]["order_status"];
           subtotal: number;
+          success_token_hash: string | null;
           tax: number;
           total: number;
           updated_at: string;
@@ -138,12 +148,22 @@ export type Database = {
           need_gift_box?: boolean;
           notes?: string | null;
           order_number?: string;
+          payment_intent_id?: string | null;
           payment_method?: string;
+          payment_proof_content_type?: string | null;
+          payment_proof_name?: string | null;
+          payment_proof_path?: string | null;
+          payment_proof_size?: number | null;
+          payment_rejection_reason?: string | null;
+          payment_reviewed_at?: string | null;
+          payment_reviewed_by?: string | null;
+          payment_status?: Database["public"]["Enums"]["payment_status"];
           phone?: string | null;
           postal_code?: string | null;
           shipping?: number;
           status?: Database["public"]["Enums"]["order_status"];
           subtotal: number;
+          success_token_hash?: string | null;
           tax?: number;
           total: number;
           updated_at?: string;
@@ -161,18 +181,83 @@ export type Database = {
           need_gift_box?: boolean;
           notes?: string | null;
           order_number?: string;
+          payment_intent_id?: string | null;
           payment_method?: string;
+          payment_proof_content_type?: string | null;
+          payment_proof_name?: string | null;
+          payment_proof_path?: string | null;
+          payment_proof_size?: number | null;
+          payment_rejection_reason?: string | null;
+          payment_reviewed_at?: string | null;
+          payment_reviewed_by?: string | null;
+          payment_status?: Database["public"]["Enums"]["payment_status"];
           phone?: string | null;
           postal_code?: string | null;
           shipping?: number;
           status?: Database["public"]["Enums"]["order_status"];
           subtotal?: number;
+          success_token_hash?: string | null;
           tax?: number;
           total?: number;
           updated_at?: string;
           user_id?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "orders_payment_intent_id_fkey";
+            columns: ["payment_intent_id"];
+            isOneToOne: false;
+            referencedRelation: "payment_upload_intents";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      payment_upload_intents: {
+        Row: {
+          claim_token_hash: string;
+          consumed_at: string | null;
+          consumed_order_id: string | null;
+          created_at: string;
+          declared_mime: string;
+          expected_size: number;
+          expires_at: string;
+          id: string;
+          object_path: string;
+          original_filename: string;
+        };
+        Insert: {
+          claim_token_hash: string;
+          consumed_at?: string | null;
+          consumed_order_id?: string | null;
+          created_at?: string;
+          declared_mime: string;
+          expected_size: number;
+          expires_at: string;
+          id?: string;
+          object_path?: string;
+          original_filename: string;
+        };
+        Update: {
+          claim_token_hash?: string;
+          consumed_at?: string | null;
+          consumed_order_id?: string | null;
+          created_at?: string;
+          declared_mime?: string;
+          expected_size?: number;
+          expires_at?: string;
+          id?: string;
+          object_path?: string;
+          original_filename?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "payment_upload_intents_consumed_order_fk";
+            columns: ["consumed_order_id"];
+            isOneToOne: false;
+            referencedRelation: "orders";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       product_variants: {
         Row: {
@@ -227,6 +312,8 @@ export type Database = {
           id: string;
           image: string;
           images: string[];
+          is_best_seller: boolean;
+          is_new_arrival: boolean;
           kind: Database["public"]["Enums"]["product_kind"];
           name_ar: string | null;
           name_en: string;
@@ -254,6 +341,8 @@ export type Database = {
           id?: string;
           image: string;
           images?: string[];
+          is_best_seller?: boolean;
+          is_new_arrival?: boolean;
           kind?: Database["public"]["Enums"]["product_kind"];
           name_ar?: string | null;
           name_en: string;
@@ -281,6 +370,8 @@ export type Database = {
           id?: string;
           image?: string;
           images?: string[];
+          is_best_seller?: boolean;
+          is_new_arrival?: boolean;
           kind?: Database["public"]["Enums"]["product_kind"];
           name_ar?: string | null;
           name_en?: string;
@@ -416,18 +507,45 @@ export type Database = {
           total: number;
         }[];
       };
+      commit_checkout_order_v3: {
+        Args: {
+          p_address: string;
+          p_city: string;
+          p_country: string;
+          p_delivery_type: Database["public"]["Enums"]["delivery_type"];
+          p_email: string;
+          p_full_name: string;
+          p_items: Json;
+          p_notes: string;
+          p_payment_claim_hash: string;
+          p_payment_intent_id: string;
+          p_phone: string;
+          p_postal_code: string;
+          p_shipping: number;
+          p_subtotal: number;
+          p_success_token_hash: string;
+          p_total: number;
+          p_user_id: string;
+        };
+        Returns: {
+          id: string;
+          order_number: string;
+          shipping: number;
+          subtotal: number;
+          tax: number;
+          total: number;
+        }[];
+      };
     };
     Enums: {
       app_role: "admin" | "customer";
       delivery_type: "home" | "office";
       order_status:
-        | "awaiting_payment"
-        | "pending"
-        | "processing"
-        | "shipped"
-        | "delivered"
-        | "cancelled";
-      product_category: "necklace" | "bracelet" | "ring" | "earrings" | "pendant" | "watch";
+        "awaiting_payment" | "pending" | "processing" | "shipped" | "delivered" | "cancelled";
+      payment_status:
+        "awaiting_payment" | "proof_submitted" | "payment_verified" | "payment_rejected";
+      product_category:
+        "necklace" | "bracelet" | "ring" | "earrings" | "pendant" | "watch" | "bangle" | "anklet";
       product_kind: "jewelry" | "ring_box" | "general_box";
     };
     CompositeTypes: {
@@ -444,12 +562,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -469,13 +587,12 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -494,13 +611,12 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -519,13 +635,12 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -536,13 +651,12 @@ export type Enums<
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    keyof DefaultSchema["CompositeTypes"] | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -564,7 +678,22 @@ export const Constants = {
         "delivered",
         "cancelled",
       ],
-      product_category: ["necklace", "bracelet", "ring", "earrings", "pendant", "watch"],
+      payment_status: [
+        "awaiting_payment",
+        "proof_submitted",
+        "payment_verified",
+        "payment_rejected",
+      ],
+      product_category: [
+        "necklace",
+        "bracelet",
+        "ring",
+        "earrings",
+        "pendant",
+        "watch",
+        "bangle",
+        "anklet",
+      ],
       product_kind: ["jewelry", "ring_box", "general_box"],
     },
   },

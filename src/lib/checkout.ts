@@ -23,6 +23,24 @@ export const checkoutSchema = z.object({
 
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
 
+export const paymentProofSchema = z.object({
+  filename: z.string().trim().min(1).max(255),
+  contentType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+  size: z
+    .number()
+    .int()
+    .positive()
+    .max(5 * 1024 * 1024),
+});
+
+export const paymentIntentSchema = z.object({
+  intentId: z.string().uuid(),
+  claimToken: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+});
+
+export type PaymentProofMetadata = z.infer<typeof paymentProofSchema>;
+export type PaymentIntent = z.infer<typeof paymentIntentSchema>;
+
 export const HOME_DELIVERY_BAISA = 2_000;
 export const OFFICE_DELIVERY_BAISA = 1_000;
 

@@ -7,10 +7,12 @@ This document is the implementation specification derived from the client discus
 - New products default to OMR 1.100, with three decimal places.
 - Administrators may edit product and box prices.
 - Checkout always reloads current database prices and never trusts browser-supplied prices.
-- Jewelry uses only these categories: Necklace, Bracelet, Ring, Earrings, Pendant, and Watch.
+- Jewelry categories are Necklace, Bracelet, Bangle, Anklet, Ring, Earrings, Pendant, and Watch.
 - Gift Sets is not a category.
 - Every product belongs to one managed brand. Existing jewelry initially belongs to a temporary Lastella brand.
 - Category pages provide All and brand filters. All includes every visible product in that category.
+- New Arrivals and Best Selling are independent, admin-controlled collections. A product may appear in both.
+- Brand Boxes shows visible Ring Box and General Box products with brand filtering.
 
 ## 2. Availability and Visibility
 
@@ -86,10 +88,20 @@ Tiffany & Co., Gucci, and Rolex are excluded until matching assets are supplied.
 - Bank transfer is the only payment method for new orders.
 - Cash on Delivery is removed from checkout and current storefront messaging.
 - Checkout displays bank details and instructions. Placeholder values are used until the client supplies final details.
-- Customers do not upload a receipt or enter a transfer reference during checkout.
+- Customers must upload a JPG, PNG, or WEBP payment screenshot of at most 5 MB before checkout submission.
+- Payment screenshots are private. Customers cannot list or download them, and administrators receive only short-lived authorized access.
 - New orders begin with the general order status Awaiting Payment.
-- Administrators manually move a verified order to Processing, then Shipped, Delivered, or Cancelled as appropriate.
+- New orders with a screenshot begin with payment status Proof Submitted.
+- Administrators verify or reject payment proof. Rejections require a reason.
+- A proof-bearing order cannot move to Processing until payment is verified.
 - Historical payment methods and statuses remain unchanged.
+
+### Confirmation and Notifications
+
+- Guest and signed-in customers receive a secure order-success page through an opaque, unguessable reference.
+- The success page exposes only limited order details and masks contact information; it never exposes the delivery address or payment screenshot.
+- A successful order sends a confirmation email to the customer and a new-order email to configured site administrators.
+- Email-provider failures do not roll back an order that has already been committed.
 
 ## 9. Homepage Video
 
@@ -103,9 +115,9 @@ Tiffany & Co., Gucci, and Rolex are excluded until matching assets are supplied.
 
 ## 10. Administration
 
-- Products: manage names, slug, brand, category/type, prices, badge, descriptions, visibility, availability, variants, and image galleries.
+- Products: manage names, slug, brand, category/type, prices, badge, New Arrival and Best Seller collection membership, descriptions, visibility, availability, variants, and image galleries.
 - Brands: create, edit, show, hide, and inspect product usage.
-- Orders: inspect delivery type, delivery fee, bank payment method, box line items, totals, and update general order status.
+- Orders: inspect delivery type, delivery fee, bank payment method, private payment proof, box line items, totals, payment review, and general order status.
 - Store settings: manage homepage video, poster, bank details, and transfer instructions.
 - Product and settings writes remain admin-only through database RLS.
 
@@ -117,6 +129,8 @@ Tiffany & Co., Gucci, and Rolex are excluded until matching assets are supplied.
 - The service-only database commit function retains row locking and atomic order/item writes.
 - Anonymous and authenticated browser roles cannot call the commit function directly.
 - Product, variant, delivery, payment, and price state is revalidated immediately before order creation.
+- Payment proofs use one-time signed uploads to a private bucket and are linked atomically when the order is committed.
+- Guest confirmation references are stored only as SHA-256 hashes.
 
 ## 12. Acceptance Criteria
 
@@ -127,6 +141,9 @@ Tiffany & Co., Gucci, and Rolex are excluded until matching assets are supplied.
 - Ring-only, non-ring, and mixed carts show the correct box groups.
 - Home adds OMR 2.000; Office adds OMR 1.000; tax remains zero.
 - Only bank transfer is accepted and new orders start Awaiting Payment.
+- Payment proof is mandatory, remains private, and must be verified before Processing.
+- Guest checkout ends on a secure success page with masked contact information.
+- Customer and administrator order emails are sent when transactional email variables are configured.
 - Numeric stock is not decremented.
 - Box and normal product images upload through Supabase Storage under admin-only mutation policies.
 - The homepage video is approximately 80 viewport-height units on desktop and usable on mobile/tablet.

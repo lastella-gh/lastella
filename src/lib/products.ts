@@ -6,7 +6,7 @@ type ProductRow = Awaited<ReturnType<typeof loadProducts>>[number];
 
 const PRODUCT_SELECT = `
   *,
-  brand:brands(id, name, slug, visible),
+  brand:brands!inner(id, name, slug, visible),
   variants:product_variants(id, size, color, available)
 `;
 
@@ -38,7 +38,11 @@ export function mapProduct(row: ProductRow): Product {
     image: row.image,
     rating: Number(row.rating || 0),
     reviews: Number(row.reviews || 0),
-    badge: row.badge as Product["badge"],
+    isNewArrival: row.is_new_arrival,
+    isBestSeller: row.is_best_seller,
+    badge:
+      (row.badge as Product["badge"]) ??
+      (row.is_new_arrival ? "new" : row.is_best_seller ? "bestseller" : undefined),
     available: row.available,
     visible: row.visible,
     description: row.description_en || undefined,
@@ -52,7 +56,10 @@ export function mapProduct(row: ProductRow): Product {
 export function useProducts(kind: ProductKind = "jewelry") {
   return useQuery({
     queryKey: ["products", kind],
-    queryFn: async () => (await loadProducts(kind)).map(mapProduct),
+    queryFn: async () =>
+      (await loadProducts(kind))
+        .map(mapProduct)
+        .filter((product) => product.brand?.visible !== false),
     retry: 1,
     staleTime: 1000 * 60 * 5,
   });
@@ -60,6 +67,23 @@ export function useProducts(kind: ProductKind = "jewelry") {
 
 export function useBoxProducts(kind: "ring_box" | "general_box") {
   return useProducts(kind);
+}
+
+export function useAllBoxProducts() {
+  return useQuery({
+    queryKey: ["products", "brand-boxes"],
+    queryFn: async () => {
+      const [ringBoxes, generalBoxes] = await Promise.all([
+        loadProducts("ring_box"),
+        loadProducts("general_box"),
+      ]);
+      return [...ringBoxes, ...generalBoxes]
+        .map(mapProduct)
+        .filter((product) => product.brand?.visible !== false);
+    },
+    retry: 1,
+    staleTime: 1000 * 60 * 5,
+  });
 }
 
 export function useProduct(slug: string) {
@@ -79,5 +103,6 @@ export async function getPublicProductBySlug(slug: string) {
     .eq("visible", true)
     .maybeSingle();
   if (error) throw error;
-  return data ? mapProduct(data) : null;
+  const product = data ? mapProduct(data) : null;
+  return product && product.brand?.visible !== false ? product : null;
 }

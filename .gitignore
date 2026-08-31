@@ -16,6 +16,7 @@ dist-ssr
 .tanstack/**
 .nitro
 supabase/.temp/
+supabase/.branches/
 *.local
 
 # Wrangler / Cloudflare

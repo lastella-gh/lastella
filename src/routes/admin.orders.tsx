@@ -1,9 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { useEffect, useEffectEvent, useState } from "react";
+import { Check, ChevronDown, ExternalLink, X } from "lucide-react";
 import { toast } from "sonner";
 import { formatPrice } from "@/lib/currency";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  getAdminPaymentProofFn,
+  loadAdminOrdersFn,
+  reviewAdminPaymentFn,
+  updateAdminOrderStatusFn,
+} from "@/lib/admin-orders.functions";
+import type { AdminOrder, AdminOrderItem, PaymentStatus } from "@/lib/admin-orders.server";
 
 export const Route = createFileRoute("/admin/orders")({
   component: AdminOrders,
@@ -19,97 +25,77 @@ const STATUSES = [
 ] as const;
 type Status = (typeof STATUSES)[number];
 
-interface Order {
-  id: string;
-  order_number: string;
-  full_name: string;
-  email: string;
-  phone: string | null;
-  address: string;
-  city: string;
-  postal_code: string | null;
-  delivery_type: "home" | "office" | null;
-  subtotal: number;
-  shipping: number;
-  tax: number;
-  total: number;
-  status: Status;
-  payment_method: string;
-  notes: string | null;
-  created_at: string;
-}
-
-interface OrderItem {
-  id: string;
-  product_name: string;
-  product_image: string | null;
-  unit_price: number;
-  quantity: number;
-  size: string | null;
-  color: string | null;
-}
-
 function AdminOrders() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [items, setItems] = useState<Record<string, OrderItem[]>>({});
+  const [orders, setOrders] = useState<AdminOrder[]>([]);
+  const [items, setItems] = useState<Record<string, AdminOrderItem[]>>({});
   const [open, setOpen] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | Status>("all");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
 
-  async function refresh() {
+  const refresh = useEffectEvent(async () => {
     setLoading(true);
     try {
-      let query = supabase.from("orders").select("*").order("created_at", { ascending: false });
-      if (filter !== "all") query = query.eq("status", filter);
-      const { data, error } = await query;
-      if (error) throw error;
-      setOrders(data);
-    } catch (e) {
-      toast.error("Failed to load orders");
+      const result = await loadAdminOrdersFn({
+        data: { status: filter === "all" ? undefined : filter },
+      });
+      setOrders(result.orders);
+      setItems(
+        result.items.reduce<Record<string, AdminOrderItem[]>>((grouped, item) => {
+          (grouped[item.order_id] ??= []).push(item);
+          return grouped;
+        }, {}),
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to load orders");
     }
     setLoading(false);
-  }
+  });
 
   useEffect(() => {
-    async function loadOrders() {
-      setLoading(true);
-      try {
-        let query = supabase.from("orders").select("*").order("created_at", { ascending: false });
-        if (filter !== "all") query = query.eq("status", filter);
-        const { data, error } = await query;
-        if (error) throw error;
-        setOrders(data);
-      } catch {
-        toast.error("Failed to load orders");
-      }
-      setLoading(false);
-    }
-    void loadOrders();
+    void refresh();
+    // Effect Events intentionally stay outside dependency arrays.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
-  async function loadItems(orderId: string) {
-    if (items[orderId]) return;
+  async function updateStatus(id: string, status: Status) {
+    setBusy(id);
     try {
-      const { data, error } = await supabase
-        .from("order_items")
-        .select("id, product_name, product_image, unit_price, quantity, size, color")
-        .eq("order_id", orderId)
-        .order("created_at");
-      if (error) throw error;
-      setItems((s) => ({ ...s, [orderId]: data }));
-    } catch (e) {
-      setItems((s) => ({ ...s, [orderId]: [] }));
+      await updateAdminOrderStatusFn({ data: { orderId: id, status } });
+      toast.success("Status updated");
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update status");
+    } finally {
+      setBusy(null);
     }
   }
 
-  async function updateStatus(id: string, status: Status) {
+  async function reviewPayment(orderId: string, decision: "payment_verified" | "payment_rejected") {
+    setBusy(orderId);
     try {
-      const { error } = await supabase.from("orders").update({ status }).eq("id", id);
-      if (error) throw error;
-      toast.success("Status updated");
+      await reviewAdminPaymentFn({
+        data: { orderId, decision, rejectionReason: rejectionReasons[orderId] },
+      });
+      toast.success(decision === "payment_verified" ? "Payment verified" : "Payment rejected");
       await refresh();
-    } catch (e) {
-      toast.error("Failed to update status");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to review payment");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function viewProof(orderId: string) {
+    setBusy(`proof-${orderId}`);
+    try {
+      const { url } = await getAdminPaymentProofFn({ data: { orderId } });
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to open payment proof");
+    } finally {
+      setBusy(null);
     }
   }
 
@@ -146,7 +132,6 @@ function AdminOrders() {
                     onClick={() => {
                       const next = isOpen ? null : o.id;
                       setOpen(next);
-                      if (next) loadItems(o.id);
                     }}
                     className="w-full text-start px-5 py-4 flex items-center gap-4 hover:bg-secondary/30 transition"
                   >
@@ -156,10 +141,14 @@ function AdminOrders() {
                       <div className="text-xs text-muted-foreground">
                         {new Date(o.created_at).toLocaleString()}
                       </div>
-                      <div>
+                      <div className="flex flex-wrap gap-1">
                         <span className="capitalize inline-block rounded-full bg-primary/10 text-primary px-3 py-1 text-xs">
                           {o.status.replaceAll("_", " ")}
                         </span>
+                        <PaymentBadge
+                          status={o.payment_status}
+                          hasProof={Boolean(o.payment_proof_path)}
+                        />
                       </div>
                       <div className="text-end font-semibold">{formatPrice(Number(o.total))}</div>
                     </div>
@@ -184,6 +173,70 @@ function AdminOrders() {
                         <p className="text-xs uppercase tracking-wider mt-3">
                           Payment: <span className="font-medium">{o.payment_method}</span>
                         </p>
+                        <div className="mt-3 rounded-xl border border-border bg-background/60 p-3 space-y-2">
+                          <div className="flex items-center justify-between gap-2 text-xs uppercase tracking-wider">
+                            <span>Payment review</span>
+                            <PaymentBadge
+                              status={o.payment_status}
+                              hasProof={Boolean(o.payment_proof_path)}
+                            />
+                          </div>
+                          {o.payment_proof_path ? (
+                            <>
+                              <button
+                                type="button"
+                                disabled={busy === `proof-${o.id}`}
+                                onClick={() => void viewProof(o.id)}
+                                className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium hover:bg-secondary disabled:opacity-50"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                                {busy === `proof-${o.id}` ? "Opening..." : "View proof"}
+                              </button>
+                              {o.payment_status !== "payment_verified" && (
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                  <button
+                                    type="button"
+                                    disabled={busy === o.id}
+                                    onClick={() => void reviewPayment(o.id, "payment_verified")}
+                                    className="inline-flex items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                                  >
+                                    <Check className="h-3.5 w-3.5" /> Verify payment
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={busy === o.id}
+                                    onClick={() => void reviewPayment(o.id, "payment_rejected")}
+                                    className="inline-flex items-center justify-center gap-1 rounded-lg border border-destructive/40 px-3 py-2 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                                  >
+                                    <X className="h-3.5 w-3.5" /> Reject payment
+                                  </button>
+                                </div>
+                              )}
+                              {o.payment_status !== "payment_verified" && (
+                                <input
+                                  value={rejectionReasons[o.id] ?? ""}
+                                  onChange={(event) =>
+                                    setRejectionReasons((current) => ({
+                                      ...current,
+                                      [o.id]: event.target.value,
+                                    }))
+                                  }
+                                  placeholder="Reason required when rejecting"
+                                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs"
+                                />
+                              )}
+                              {o.payment_rejection_reason && (
+                                <p className="text-xs text-destructive">
+                                  {o.payment_rejection_reason}
+                                </p>
+                              )}
+                            </>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">
+                              No proof submitted (historical order).
+                            </p>
+                          )}
+                        </div>
                         <p className="text-xs uppercase tracking-wider">
                           Delivery:{" "}
                           <span className="font-medium">{o.delivery_type ?? "Legacy order"}</span>
@@ -197,6 +250,7 @@ function AdminOrders() {
                           </label>
                           <select
                             value={o.status}
+                            disabled={busy === o.id}
                             onChange={(e) => updateStatus(o.id, e.target.value as Status)}
                             className="rounded-xl border border-border bg-background px-3 py-2 text-sm"
                           >
@@ -267,5 +321,20 @@ function Row({ label, value, bold }: { label: string; value: React.ReactNode; bo
       <span className="text-muted-foreground">{label}</span>
       <span className={bold ? "font-semibold" : ""}>{value}</span>
     </div>
+  );
+}
+
+function PaymentBadge({ status, hasProof }: { status: PaymentStatus; hasProof: boolean }) {
+  const label = !hasProof ? "No proof" : status.replace("payment_", "").replaceAll("_", " ");
+  const color =
+    status === "payment_verified"
+      ? "bg-emerald-500/10 text-emerald-700"
+      : status === "payment_rejected"
+        ? "bg-destructive/10 text-destructive"
+        : "bg-amber-500/10 text-amber-700";
+  return (
+    <span className={`capitalize inline-block rounded-full px-3 py-1 text-xs ${color}`}>
+      {label}
+    </span>
   );
 }

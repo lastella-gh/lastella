@@ -25,13 +25,15 @@ function Index() {
         eyebrow={t("section.trending.eyebrow")}
         title={t("section.trending.title")}
         subtitle={t("section.trending.subtitle")}
-        products={products.slice(0, 4)}
+        products={products.filter((product) => product.isNewArrival).slice(0, 4)}
         isLoading={isLoading}
+        collection="new-arrivals"
       />
       <ProductGrid
         title={t("section.bestsellers.title")}
-        products={products.slice(4, 8)}
+        products={products.filter((product) => product.isBestSeller).slice(0, 4)}
         isLoading={isLoading}
+        collection="best-sellers"
       />
       <Testimonials />
     </>

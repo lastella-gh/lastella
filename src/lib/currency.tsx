@@ -30,13 +30,12 @@ export function formatPrice(amount: number) {
   const formatted = text.slice(CURRENCY.length + 1);
 
   return (
-    <span
-      aria-label={text}
-      className="inline-flex items-baseline gap-1 whitespace-nowrap"
-      dir="ltr"
-    >
-      <OmaniRialSymbol />
-      <span aria-hidden="true">{formatted}</span>
+    <span className="inline-flex items-baseline whitespace-nowrap" dir="ltr">
+      <span className="sr-only">{text}</span>
+      <span aria-hidden="true" className="inline-flex items-baseline gap-1">
+        <OmaniRialSymbol />
+        <span>{formatted}</span>
+      </span>
     </span>
   );
 }

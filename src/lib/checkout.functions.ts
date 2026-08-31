@@ -1,7 +1,22 @@
 import { createServerFn } from "@tanstack/react-start";
-import { checkoutSchema } from "@/lib/checkout";
+import { checkoutSchema, paymentIntentSchema } from "@/lib/checkout";
 import { createCheckoutOrder } from "@/lib/checkout.server";
+import { discardPaymentProof, preparePaymentProof } from "@/lib/payment-proof.server";
+import { z } from "zod";
 
 export const submitCheckout = createServerFn({ method: "POST" })
-  .validator(checkoutSchema)
-  .handler(({ data }) => createCheckoutOrder(data));
+  .validator(
+    z.object({
+      checkout: checkoutSchema,
+      payment: paymentIntentSchema,
+    }),
+  )
+  .handler(({ data }) => createCheckoutOrder(data.checkout, data.payment));
+
+export const preparePaymentProofUpload = createServerFn({ method: "POST" })
+  .validator(z.object({ filename: z.string(), contentType: z.string(), size: z.number() }))
+  .handler(({ data }) => preparePaymentProof(data));
+
+export const discardPaymentProofUpload = createServerFn({ method: "POST" })
+  .validator(paymentIntentSchema)
+  .handler(({ data }) => discardPaymentProof(data.intentId, data.claimToken));

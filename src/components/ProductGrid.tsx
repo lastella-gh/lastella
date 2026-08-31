@@ -10,9 +10,10 @@ interface Props {
   subtitle?: string;
   products: Product[];
   isLoading?: boolean;
+  collection?: "new-arrivals" | "best-sellers" | "brand-boxes";
 }
 
-export function ProductGrid({ eyebrow, title, subtitle, products, isLoading }: Props) {
+export function ProductGrid({ eyebrow, title, subtitle, products, isLoading, collection }: Props) {
   const { t } = useI18n();
   return (
     <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
@@ -28,6 +29,7 @@ export function ProductGrid({ eyebrow, title, subtitle, products, isLoading }: P
         </div>
         <Link
           to="/shop"
+          search={collection ? { collection } : undefined}
           className="group inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.2em] text-primary"
         >
           {t("product.viewAll")}

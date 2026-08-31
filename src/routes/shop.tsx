@@ -2,13 +2,16 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import { ProductCard } from "@/components/ProductCard";
-import { useProducts } from "@/lib/products";
+import { useAllBoxProducts, useProducts } from "@/lib/products";
 import { useI18n } from "@/lib/i18n";
 import { z } from "zod";
 
 export const Route = createFileRoute("/shop")({
   validateSearch: z.object({
-    category: z.enum(["necklace", "bracelet", "ring", "earrings", "pendant", "watch"]).optional(),
+    category: z
+      .enum(["necklace", "bracelet", "bangle", "anklet", "ring", "earrings", "pendant", "watch"])
+      .optional(),
+    collection: z.enum(["new-arrivals", "best-sellers", "brand-boxes"]).optional(),
   }),
   head: () => ({
     meta: [
@@ -28,19 +31,35 @@ export const Route = createFileRoute("/shop")({
   component: Shop,
 });
 
-const cats = ["all", "necklace", "bracelet", "ring", "earrings", "pendant", "watch"] as const;
+const cats = [
+  "all",
+  "necklace",
+  "bracelet",
+  "bangle",
+  "anklet",
+  "ring",
+  "earrings",
+  "pendant",
+  "watch",
+] as const;
+const collections = ["brand-boxes", "best-sellers"] as const;
 const sorts = ["newest", "price-asc", "price-desc", "rating"] as const;
 
 function Shop() {
   const { t, lang } = useI18n();
   const search = Route.useSearch();
-  const [cat, setCat] = useState<(typeof cats)[number]>(search.category ?? "all");
   const [brand, setBrand] = useState("all");
   const [sort, setSort] = useState<(typeof sorts)[number]>("newest");
+  const navigate = Route.useNavigate();
+  const cat = search.category ?? "all";
+  const activeFilter = search.collection ?? cat;
 
   const { data: rawProducts, isLoading } = useProducts();
+  const { data: rawBoxProducts, isLoading: isLoadingBoxes } = useAllBoxProducts();
+  const sourceProducts = search.collection === "brand-boxes" ? rawBoxProducts : rawProducts;
+  const isLoadingSource = search.collection === "brand-boxes" ? isLoadingBoxes : isLoading;
   const brands = useMemo(() => {
-    const products = Array.isArray(rawProducts) ? rawProducts : [];
+    const products = Array.isArray(sourceProducts) ? sourceProducts : [];
     return [
       ...new Map(
         products
@@ -49,26 +68,31 @@ function Shop() {
           .map((product) => [product.brand!.slug, product.brand!]),
       ).values(),
     ].sort((a, b) => a.name.localeCompare(b.name));
-  }, [rawProducts, cat]);
+  }, [sourceProducts, cat]);
 
   const filtered = useMemo(() => {
-    const products = Array.isArray(rawProducts) ? rawProducts : [];
+    const products = Array.isArray(sourceProducts) ? sourceProducts : [];
     let list = products.filter(
       (p) =>
-        p && (cat === "all" || p.category === cat) && (brand === "all" || p.brand?.slug === brand),
+        p &&
+        (cat === "all" || p.category === cat) &&
+        (search.collection !== "new-arrivals" || p.isNewArrival) &&
+        (search.collection !== "best-sellers" || p.isBestSeller) &&
+        (search.collection !== "brand-boxes" ||
+          p.kind === "ring_box" ||
+          p.kind === "general_box") &&
+        (brand === "all" || p.brand?.slug === brand),
     );
     if (sort === "price-asc") list = [...list].sort((a, b) => (a.price || 0) - (b.price || 0));
     if (sort === "price-desc") list = [...list].sort((a, b) => (b.price || 0) - (a.price || 0));
     if (sort === "rating") list = [...list].sort((a, b) => (b.rating || 0) - (a.rating || 0));
     return list;
-  }, [rawProducts, cat, brand, sort]);
+  }, [sourceProducts, search.collection, cat, brand, sort]);
 
   const catLabel = (c: string) =>
-    c === "all"
-      ? lang === "ar"
-        ? "الكل"
-        : "All"
-      : t(`cat.${c === "necklace" ? "necklace" : c}` as never);
+    c === "all" ? (lang === "ar" ? "الكل" : "All") : t(`cat.${c}` as never);
+  const collectionLabel = (collection: (typeof collections)[number]) =>
+    t(collection === "brand-boxes" ? "nav.brandBoxes" : "nav.bestSelling");
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
@@ -81,8 +105,56 @@ function Shop() {
         </h1>
       </div>
 
+      <div className="mb-6 flex gap-3 lg:hidden">
+        <select
+          aria-label={lang === "ar" ? "تصفية المنتجات" : "Filter products"}
+          value={activeFilter}
+          onChange={(e) => {
+            const value = e.target.value;
+            void navigate({
+              search: (current) => ({
+                ...current,
+                category:
+                  value === "all" || collections.includes(value as (typeof collections)[number])
+                    ? undefined
+                    : (value as Exclude<(typeof cats)[number], "all">),
+                collection: collections.includes(value as (typeof collections)[number])
+                  ? (value as (typeof collections)[number])
+                  : undefined,
+              }),
+            });
+            setBrand("all");
+          }}
+          className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm"
+        >
+          {cats.map((c) => (
+            <option key={c} value={c}>
+              {catLabel(c)}
+            </option>
+          ))}
+          {collections.map((collection) => (
+            <option key={collection} value={collection}>
+              {collectionLabel(collection)}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label={lang === "ar" ? "تصفية العلامة التجارية" : "Filter by brand"}
+          value={brand}
+          onChange={(e) => setBrand(e.target.value)}
+          className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm"
+        >
+          <option value="all">{lang === "ar" ? "كل العلامات" : "All brands"}</option>
+          {brands.map((item) => (
+            <option key={item.id} value={item.slug}>
+              {item.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className="grid lg:grid-cols-[240px_1fr] gap-10">
-        <aside className="space-y-8">
+        <aside className="hidden space-y-8 lg:block">
           <div>
             <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] mb-4">
               <SlidersHorizontal className="h-3.5 w-3.5" /> {lang === "ar" ? "الفئة" : "Category"}
@@ -92,12 +164,36 @@ function Shop() {
                 <button
                   key={c}
                   onClick={() => {
-                    setCat(c);
+                    void navigate({
+                      search: (current) => ({
+                        ...current,
+                        category: c === "all" ? undefined : c,
+                        collection: undefined,
+                      }),
+                    });
                     setBrand("all");
                   }}
-                  className={`text-start text-sm py-2 px-3 rounded-lg transition-all ${cat === c ? "bg-primary/10 text-primary font-medium" : "hover:bg-secondary text-foreground/80"}`}
+                  className={`text-start text-sm py-2 px-3 rounded-lg transition-all ${cat === c && !search.collection ? "bg-primary/10 text-primary font-medium" : "hover:bg-secondary text-foreground/80"}`}
                 >
                   {catLabel(c)}
+                </button>
+              ))}
+              {collections.map((collection) => (
+                <button
+                  key={collection}
+                  onClick={() => {
+                    void navigate({
+                      search: (current) => ({
+                        ...current,
+                        category: undefined,
+                        collection,
+                      }),
+                    });
+                    setBrand("all");
+                  }}
+                  className={`text-start text-sm py-2 px-3 rounded-lg transition-all ${search.collection === collection ? "bg-primary/10 text-primary font-medium" : "hover:bg-secondary text-foreground/80"}`}
+                >
+                  {collectionLabel(collection)}
                 </button>
               ))}
             </div>
@@ -148,7 +244,7 @@ function Shop() {
             </select>
           </div>
 
-          {isLoading ? (
+          {isLoadingSource ? (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
               {[1, 2, 3, 4, 5, 6].map((i) => (
                 <div key={i} className="animate-pulse flex flex-col gap-3">
@@ -166,7 +262,7 @@ function Shop() {
             </div>
           )}
 
-          {!isLoading && filtered.length === 0 && (
+          {!isLoadingSource && filtered.length === 0 && (
             <div className="text-center py-20 text-muted-foreground">
               {lang === "ar" ? "لم يتم العثور على منتجات." : "No products found."}
             </div>

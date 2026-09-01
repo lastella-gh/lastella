@@ -306,6 +306,10 @@ function ProductForm({
   onSaved: () => void;
 }) {
   const [nameEn, setNameEn] = useState(initial?.name_en ?? "");
+  const [nameAr, setNameAr] = useState(initial?.name_ar ?? "");
+  const [nameTranslationStatus, setNameTranslationStatus] = useState<
+    "idle" | "translating" | "failed"
+  >("idle");
   const [slug, setSlug] = useState(initial?.slug ?? "");
   const [slugEdited, setSlugEdited] = useState(Boolean(initial));
   const [kind, setKind] = useState<ProductKind>(initial?.kind ?? "jewelry");
@@ -324,17 +328,61 @@ function ProductForm({
   const [saveStatus, setSaveStatus] = useState("Saving...");
   const mainPreviewRef = useRef(mainPreview);
   const galleryPreviewsRef = useRef(galleryPreviews);
+  const nameEnRef = useRef(nameEn);
+  const nameArEditedRef = useRef(Boolean(initial?.name_ar?.trim()));
+  const translatedNameRef = useRef(initial?.name_ar ? initial.name_en.trim() : "");
+  const translationAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     return () => {
+      translationAbortRef.current?.abort();
       revokeBlobUrl(mainPreviewRef.current);
       galleryPreviewsRef.current.forEach(revokeBlobUrl);
     };
   }, []);
 
   function updateName(value: string) {
+    nameEnRef.current = value;
     setNameEn(value);
     if (!slugEdited) setSlug(toSlug(value));
+  }
+
+  async function translateName() {
+    const source = nameEnRef.current.trim();
+    if (!source || source === translatedNameRef.current || nameArEditedRef.current) return;
+
+    translationAbortRef.current?.abort();
+    const controller = new AbortController();
+    translationAbortRef.current = controller;
+    setNameTranslationStatus("translating");
+
+    try {
+      const params = new URLSearchParams({ q: source, langpair: "en|ar" });
+      const response = await fetch(`https://api.mymemory.translated.net/get?${params}`, {
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error("Translation request failed");
+      const result = (await response.json()) as {
+        responseData?: { translatedText?: string };
+        responseStatus?: number | string;
+      };
+      if (Number(result.responseStatus ?? 200) >= 400) {
+        throw new Error("Translation request failed");
+      }
+      const translated = result.responseData?.translatedText?.trim();
+      if (!translated) throw new Error("Translation was empty");
+      if (nameEnRef.current.trim() !== source || nameArEditedRef.current) {
+        if (translationAbortRef.current === controller) setNameTranslationStatus("idle");
+        return;
+      }
+
+      translatedNameRef.current = source;
+      setNameAr(translated);
+      setNameTranslationStatus("idle");
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      if (translationAbortRef.current === controller) setNameTranslationStatus("failed");
+    }
   }
 
   function chooseMainImage(file: File | undefined) {
@@ -532,6 +580,7 @@ function ProductForm({
               <input
                 value={nameEn}
                 onChange={(event) => updateName(event.target.value)}
+                onBlur={() => void translateName()}
                 required
                 autoFocus
                 className={inputClass}
@@ -540,10 +589,23 @@ function ProductForm({
             <Field label="Name (AR)">
               <input
                 name="name_ar"
-                defaultValue={initial?.name_ar ?? ""}
+                value={nameAr}
+                onChange={(event) => {
+                  nameArEditedRef.current = true;
+                  setNameAr(event.target.value);
+                  setNameTranslationStatus("idle");
+                }}
                 dir="rtl"
+                aria-busy={nameTranslationStatus === "translating"}
                 className={inputClass}
               />
+              {nameTranslationStatus !== "idle" && (
+                <p className="mt-1.5 text-xs text-muted-foreground" role="status">
+                  {nameTranslationStatus === "translating"
+                    ? "Translating product name..."
+                    : "Automatic translation failed. Enter the Arabic name manually or blur the English name to retry."}
+                </p>
+              )}
             </Field>
             <Field label="Slug">
               <input

@@ -39,7 +39,12 @@ export function ProductCard({ product }: { product: Product }) {
 
   return (
     <div className="group relative">
-      <Link to="/product/$slug" params={{ slug: product.slug || "" }} className="block">
+      <Link
+        to="/product/$slug"
+        params={{ slug: product.slug || "" }}
+        preload="intent"
+        className="block"
+      >
         <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-secondary">
           <img
             src={product.image || "/favicon.png"}

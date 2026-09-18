@@ -326,6 +326,7 @@ function ProductForm({
   const [isBestSeller, setIsBestSeller] = useState(initial?.is_best_seller ?? false);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState("Saving...");
+  const [saveError, setSaveError] = useState<string | null>(null);
   const mainPreviewRef = useRef(mainPreview);
   const galleryPreviewsRef = useRef(galleryPreviews);
   const nameEnRef = useRef(nameEn);
@@ -454,8 +455,24 @@ function ProductForm({
     let createdProductId: string | null = null;
     setSaving(true);
     setSaveStatus("Saving...");
+    setSaveError(null);
 
     try {
+      const normalizedSlug = slug.trim();
+      let duplicateSlugQuery = supabase
+        .from("products")
+        .select("id")
+        .eq("slug", normalizedSlug)
+        .limit(1);
+      if (initial) duplicateSlugQuery = duplicateSlugQuery.neq("id", initial.id);
+      const { data: duplicateSlug, error: duplicateSlugError } = await duplicateSlugQuery;
+      if (duplicateSlugError) throw duplicateSlugError;
+      if (duplicateSlug.length > 0) {
+        throw new ProductSaveError(
+          "This slug is already used by another product. Choose a unique slug.",
+        );
+      }
+
       let image = initial?.image ?? "";
       if (mainFile) {
         setSaveStatus("Uploading main image...");
@@ -478,7 +495,7 @@ function ProductForm({
         brand_id: String(form.get("brand_id")),
         kind,
         category,
-        slug: slug.trim(),
+        slug: normalizedSlug,
         name_en: nameEn.trim(),
         name_ar: optionalText(form.get("name_ar")),
         price: Number(form.get("price")),
@@ -543,7 +560,9 @@ function ProductForm({
       if (uploadedPaths.length > 0) {
         await supabase.storage.from("product-images").remove(uploadedPaths);
       }
-      const message = error instanceof Error ? error.message : "Failed to save product";
+      console.error("Failed to save product", error);
+      const message = productSaveError(error);
+      setSaveError(message);
       toast.error(message);
     } finally {
       setSaving(false);
@@ -575,6 +594,14 @@ function ProductForm({
         </div>
 
         <div className="overflow-y-auto p-6">
+          {saveError && (
+            <div
+              role="alert"
+              className="mb-5 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+            >
+              {saveError}
+            </div>
+          )}
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="Name (EN)">
               <input
@@ -1074,6 +1101,75 @@ function optionalText(value: FormDataEntryValue | null) {
 function optionalNumber(value: FormDataEntryValue | null) {
   const text = String(value ?? "").trim();
   return text ? Number(text) : null;
+}
+
+class ProductSaveError extends Error {}
+
+function productSaveError(error: unknown) {
+  if (error instanceof ProductSaveError) return error.message;
+
+  const details = errorDetails(error);
+  const searchable = `${details.message} ${details.details} ${details.hint}`.toLowerCase();
+
+  if (details.code === "23505") {
+    if (searchable.includes("slug")) {
+      return "This slug is already used by another product. Choose a unique slug.";
+    }
+    if (searchable.includes("product_variants_unique_options")) {
+      return "Two variants have the same size and color. Each option combination must be unique.";
+    }
+    return "A product with these details already exists. Check the slug and product options.";
+  }
+  if (details.code === "23503") {
+    return "The selected brand or related record no longer exists. Refresh the page and try again.";
+  }
+  if (details.code === "23514") {
+    if (searchable.includes("slug")) {
+      return "The slug may contain only lowercase letters, numbers, and hyphens.";
+    }
+    if (searchable.includes("price")) return "Enter a valid product price of zero or more.";
+    return "Some product details are invalid. Check the product type, category, and price.";
+  }
+  if (details.code === "42501") {
+    return "You do not have permission to save products. Sign in again with an admin account.";
+  }
+  if (details.code.startsWith("PGRST")) {
+    return "The catalog service could not save this product. Refresh the page and try again.";
+  }
+  if (
+    searchable.includes("failed to fetch") ||
+    searchable.includes("network") ||
+    searchable.includes("timeout")
+  ) {
+    return "The product could not be saved because the connection was interrupted. Check your connection and try again.";
+  }
+  if (searchable.includes("payload too large") || searchable.includes("maximum allowed size")) {
+    return "One of the selected images is too large. Use images smaller than 5MB.";
+  }
+  if (searchable.includes("mime") || searchable.includes("content type")) {
+    return "One of the selected images has an unsupported format. Use PNG, JPG, or WEBP.";
+  }
+
+  return "We couldn't save the product. Check the form and try again. If the problem continues, refresh the page.";
+}
+
+function errorDetails(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return { code: "", message: String(error ?? ""), details: "", hint: "" };
+  }
+
+  const value = error as Record<string, unknown>;
+  return {
+    code: typeof value.code === "string" ? value.code : "",
+    message:
+      error instanceof Error
+        ? error.message
+        : typeof value.message === "string"
+          ? value.message
+          : "",
+    details: typeof value.details === "string" ? value.details : "",
+    hint: typeof value.hint === "string" ? value.hint : "",
+  };
 }
 
 function toSlug(value: string) {

@@ -9,8 +9,9 @@ import {
   Sparkles,
   Star,
   Truck,
+  X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { toast } from "sonner";
 import { ProductCard } from "@/components/ProductCard";
 import { formatPrice } from "@/lib/currency";
@@ -31,9 +32,30 @@ export const Route = createFileRoute("/product/$slug")({
       { property: "og:image", content: loaderData?.product.image },
     ],
   }),
+  remountDeps: ({ params }) => params.slug,
+  pendingMs: 150,
+  pendingMinMs: 150,
+  pendingComponent: ProductPending,
   component: ProductPage,
   notFoundComponent: () => <div className="p-20 text-center">Product not found.</div>,
 });
+
+function ProductPending() {
+  return (
+    <div className="mx-auto max-w-7xl animate-pulse px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mb-8 h-4 w-48 rounded-full bg-secondary" />
+      <div className="grid gap-10 lg:grid-cols-2 lg:gap-16">
+        <div className="aspect-square rounded-3xl bg-secondary" />
+        <div className="space-y-5 pt-4">
+          <div className="h-3 w-36 rounded-full bg-secondary" />
+          <div className="h-12 w-3/4 rounded-2xl bg-secondary" />
+          <div className="h-9 w-40 rounded-xl bg-secondary" />
+          <div className="h-24 rounded-2xl bg-secondary" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ProductPage() {
   const { product } = Route.useLoaderData();
@@ -48,7 +70,24 @@ function ProductPage() {
     firstAvailableVariant?.size ?? product.sizes[0],
   );
   const [activeImage, setActiveImage] = useState(product.image);
+  const [imageOpen, setImageOpen] = useState(false);
+  const [imageZoomed, setImageZoomed] = useState(false);
+  const [zoomPosition, setZoomPosition] = useState({ x: 50, y: 50 });
   const { data: jewelry = [] } = useProducts();
+
+  useEffect(() => {
+    if (!imageOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setImageOpen(false);
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [imageOpen]);
 
   const selectedVariant = product.variants.find(
     (variant) =>
@@ -84,6 +123,14 @@ function ProductPage() {
     toast.success(`${product.name[lang] || product.name.en} added to cart`);
   }
 
+  function updateZoomPosition(event: MouseEvent<HTMLDivElement>) {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    setZoomPosition({
+      x: ((event.clientX - bounds.left) / bounds.width) * 100,
+      y: ((event.clientY - bounds.top) / bounds.height) * 100,
+    });
+  }
+
   const categoryLabel =
     product.kind === "ring_box"
       ? lang === "ar"
@@ -112,11 +159,33 @@ function ProductPage() {
 
       <div className="grid gap-10 lg:grid-cols-2 lg:gap-16">
         <div className="space-y-4">
-          <div className="aspect-square overflow-hidden rounded-3xl bg-secondary">
+          <button
+            type="button"
+            onClick={() => setImageOpen(true)}
+            className="aspect-square w-full cursor-zoom-in overflow-hidden rounded-3xl bg-secondary lg:hidden"
+            aria-label={lang === "ar" ? "تكبير صورة المنتج" : "Enlarge product image"}
+          >
             <img
               src={activeImage}
               alt={product.name[lang] || product.name.en}
               className="h-full w-full object-cover"
+            />
+          </button>
+          <div
+            onMouseEnter={() => setImageZoomed(true)}
+            onMouseMove={updateZoomPosition}
+            onMouseLeave={() => setImageZoomed(false)}
+            className="hidden aspect-square cursor-crosshair overflow-hidden rounded-3xl bg-secondary lg:block"
+            aria-label={lang === "ar" ? "مرر المؤشر لتكبير الصورة" : "Hover to zoom product image"}
+          >
+            <img
+              src={activeImage}
+              alt={product.name[lang] || product.name.en}
+              className="h-full w-full object-cover transition-transform duration-150 ease-out"
+              style={{
+                transform: imageZoomed ? "scale(2.35)" : "scale(1)",
+                transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%`,
+              }}
             />
           </div>
           {gallery.length > 1 && (
@@ -266,6 +335,31 @@ function ProductPage() {
             ))}
           </div>
         </section>
+      )}
+
+      {imageOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={lang === "ar" ? "صورة المنتج المكبرة" : "Enlarged product image"}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-3 sm:p-6 lg:hidden"
+          onClick={() => setImageOpen(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setImageOpen(false)}
+            className="absolute end-4 top-4 grid h-11 w-11 place-items-center rounded-full bg-white/15 text-white backdrop-blur transition hover:bg-white/25"
+            aria-label={lang === "ar" ? "إغلاق الصورة" : "Close image"}
+          >
+            <X className="h-6 w-6" />
+          </button>
+          <img
+            src={activeImage}
+            alt={product.name[lang] || product.name.en}
+            className="max-h-full max-w-full object-contain"
+            onClick={(event) => event.stopPropagation()}
+          />
+        </div>
       )}
     </div>
   );

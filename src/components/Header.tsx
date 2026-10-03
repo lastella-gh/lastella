@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Heart, Search, ShoppingBag, User, Menu, X, Globe, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useI18n } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
@@ -128,39 +129,41 @@ export function Header() {
       </div>
 
       {/* Mobile drawer */}
-      {open && (
-        <div className="isolate fixed inset-0 z-[100] lg:hidden">
-          <div className="absolute inset-0 bg-foreground/40" onClick={() => setOpen(false)} />
-          <div className="absolute inset-y-0 start-0 z-10 w-72 bg-white p-6 shadow-2xl">
-            <div className="mb-8 flex items-center justify-between">
-              <Logo className="h-10" />
-              <button onClick={() => setOpen(false)} aria-label="Close menu">
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-            <nav className="flex flex-col gap-1">
-              <Link
-                to="/"
-                onClick={() => setOpen(false)}
-                className="border-b border-border/60 px-2 py-3 text-base font-medium hover:text-primary"
-              >
-                {t("nav.home")}
-              </Link>
-              {nav.map((n) => (
+      {open &&
+        createPortal(
+          <div className="isolate fixed inset-0 z-[100] lg:hidden">
+            <div className="absolute inset-0 bg-foreground/40" onClick={() => setOpen(false)} />
+            <div className="absolute inset-y-0 start-0 z-10 w-72 bg-white p-6 shadow-2xl">
+              <div className="mb-8 flex items-center justify-between">
+                <Logo className="h-10" />
+                <button onClick={() => setOpen(false)} aria-label="Close menu">
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              <nav className="flex flex-col gap-1">
                 <Link
-                  key={n.label}
-                  to="/shop"
-                  search={n.search}
+                  to="/"
                   onClick={() => setOpen(false)}
                   className="border-b border-border/60 px-2 py-3 text-base font-medium hover:text-primary"
                 >
-                  {n.label}
+                  {t("nav.home")}
                 </Link>
-              ))}
-            </nav>
-          </div>
-        </div>
-      )}
+                {nav.map((n) => (
+                  <Link
+                    key={n.label}
+                    to="/shop"
+                    search={n.search}
+                    onClick={() => setOpen(false)}
+                    className="border-b border-border/60 px-2 py-3 text-base font-medium hover:text-primary"
+                  >
+                    {n.label}
+                  </Link>
+                ))}
+              </nav>
+            </div>
+          </div>,
+          document.body,
+        )}
     </header>
   );
 }

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Enums, Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { formatPrice } from "@/lib/currency";
+import { useArabicTranslation } from "@/hooks/use-arabic-translation";
 
 export const Route = createFileRoute("/admin/products")({
   component: AdminProducts,
@@ -305,11 +306,11 @@ function ProductForm({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [nameEn, setNameEn] = useState(initial?.name_en ?? "");
-  const [nameAr, setNameAr] = useState(initial?.name_ar ?? "");
-  const [nameTranslationStatus, setNameTranslationStatus] = useState<
-    "idle" | "translating" | "failed"
-  >("idle");
+  const nameTranslation = useArabicTranslation(initial?.name_en, initial?.name_ar ?? "");
+  const descriptionTranslation = useArabicTranslation(
+    initial?.description_en ?? "",
+    initial?.description_ar ?? "",
+  );
   const [slug, setSlug] = useState(initial?.slug ?? "");
   const [slugEdited, setSlugEdited] = useState(Boolean(initial));
   const [kind, setKind] = useState<ProductKind>(initial?.kind ?? "jewelry");
@@ -329,61 +330,17 @@ function ProductForm({
   const [saveError, setSaveError] = useState<string | null>(null);
   const mainPreviewRef = useRef(mainPreview);
   const galleryPreviewsRef = useRef(galleryPreviews);
-  const nameEnRef = useRef(nameEn);
-  const nameArEditedRef = useRef(Boolean(initial?.name_ar?.trim()));
-  const translatedNameRef = useRef(initial?.name_ar ? initial.name_en.trim() : "");
-  const translationAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     return () => {
-      translationAbortRef.current?.abort();
       revokeBlobUrl(mainPreviewRef.current);
       galleryPreviewsRef.current.forEach(revokeBlobUrl);
     };
   }, []);
 
   function updateName(value: string) {
-    nameEnRef.current = value;
-    setNameEn(value);
+    nameTranslation.updateEnglish(value);
     if (!slugEdited) setSlug(toSlug(value));
-  }
-
-  async function translateName() {
-    const source = nameEnRef.current.trim();
-    if (!source || source === translatedNameRef.current || nameArEditedRef.current) return;
-
-    translationAbortRef.current?.abort();
-    const controller = new AbortController();
-    translationAbortRef.current = controller;
-    setNameTranslationStatus("translating");
-
-    try {
-      const params = new URLSearchParams({ q: source, langpair: "en|ar" });
-      const response = await fetch(`https://api.mymemory.translated.net/get?${params}`, {
-        signal: controller.signal,
-      });
-      if (!response.ok) throw new Error("Translation request failed");
-      const result = (await response.json()) as {
-        responseData?: { translatedText?: string };
-        responseStatus?: number | string;
-      };
-      if (Number(result.responseStatus ?? 200) >= 400) {
-        throw new Error("Translation request failed");
-      }
-      const translated = result.responseData?.translatedText?.trim();
-      if (!translated) throw new Error("Translation was empty");
-      if (nameEnRef.current.trim() !== source || nameArEditedRef.current) {
-        if (translationAbortRef.current === controller) setNameTranslationStatus("idle");
-        return;
-      }
-
-      translatedNameRef.current = source;
-      setNameAr(translated);
-      setNameTranslationStatus("idle");
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      if (translationAbortRef.current === controller) setNameTranslationStatus("failed");
-    }
   }
 
   function chooseMainImage(file: File | undefined) {
@@ -496,7 +453,7 @@ function ProductForm({
         kind,
         category,
         slug: normalizedSlug,
-        name_en: nameEn.trim(),
+        name_en: nameTranslation.english.trim(),
         name_ar: optionalText(form.get("name_ar")),
         price: Number(form.get("price")),
         old_price: optionalNumber(form.get("old_price")),
@@ -605,9 +562,9 @@ function ProductForm({
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="Name (EN)">
               <input
-                value={nameEn}
+                value={nameTranslation.english}
                 onChange={(event) => updateName(event.target.value)}
-                onBlur={() => void translateName()}
+                onBlur={() => void nameTranslation.translate()}
                 required
                 autoFocus
                 className={inputClass}
@@ -616,19 +573,15 @@ function ProductForm({
             <Field label="Name (AR)">
               <input
                 name="name_ar"
-                value={nameAr}
-                onChange={(event) => {
-                  nameArEditedRef.current = true;
-                  setNameAr(event.target.value);
-                  setNameTranslationStatus("idle");
-                }}
+                value={nameTranslation.arabic}
+                onChange={(event) => nameTranslation.updateArabic(event.target.value)}
                 dir="rtl"
-                aria-busy={nameTranslationStatus === "translating"}
+                aria-busy={nameTranslation.status === "translating"}
                 className={inputClass}
               />
-              {nameTranslationStatus !== "idle" && (
+              {nameTranslation.status !== "idle" && (
                 <p className="mt-1.5 text-xs text-muted-foreground" role="status">
-                  {nameTranslationStatus === "translating"
+                  {nameTranslation.status === "translating"
                     ? "Translating product name..."
                     : "Automatic translation failed. Enter the Arabic name manually or blur the English name to retry."}
                 </p>
@@ -734,7 +687,9 @@ function ProductForm({
               <Field label="Description (EN)">
                 <textarea
                   name="description_en"
-                  defaultValue={initial?.description_en ?? ""}
+                  value={descriptionTranslation.english}
+                  onChange={(event) => descriptionTranslation.updateEnglish(event.target.value)}
+                  onBlur={() => void descriptionTranslation.translate()}
                   rows={3}
                   className={inputClass}
                 />
@@ -742,11 +697,20 @@ function ProductForm({
               <Field label="Description (AR)">
                 <textarea
                   name="description_ar"
-                  defaultValue={initial?.description_ar ?? ""}
+                  value={descriptionTranslation.arabic}
+                  onChange={(event) => descriptionTranslation.updateArabic(event.target.value)}
                   rows={3}
                   dir="rtl"
+                  aria-busy={descriptionTranslation.status === "translating"}
                   className={inputClass}
                 />
+                {descriptionTranslation.status !== "idle" && (
+                  <p className="mt-1.5 text-xs text-muted-foreground" role="status">
+                    {descriptionTranslation.status === "translating"
+                      ? "Translating product description..."
+                      : "Automatic translation failed. Enter the Arabic description manually or blur the English description to retry."}
+                  </p>
+                )}
               </Field>
             </div>
 

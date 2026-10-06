@@ -6,6 +6,8 @@ export interface ProductVariant {
   id: string;
   size: string | null;
   color: string | null;
+  size_ar?: string | null;
+  color_ar?: string | null;
   available: boolean;
 }
 
@@ -32,6 +34,7 @@ export interface Product {
   available: boolean;
   visible: boolean;
   description?: string;
+  descriptionAr?: string;
   images: string[];
   sizes: string[];
   colors: string[];
@@ -47,10 +50,43 @@ export interface CartItem {
   variantId?: string;
 }
 
+export function isCartItemPurchasable(item: CartItem) {
+  return hasValidVariantSelection(item.product, item.size, item.color, item.variantId);
+}
+
+function hasValidVariantSelection(
+  product: Product,
+  size?: string,
+  color?: string,
+  variantId?: string,
+) {
+  if (!product.available) return false;
+  if (!product.variants.length) return !variantId && !size && !color;
+  const variant = product.variants.find((option) => option.id === variantId);
+  return (
+    Boolean(variant?.available) &&
+    (variant?.size ?? undefined) === size &&
+    (variant?.color ?? undefined) === color
+  );
+}
+
 interface StoreCtx {
   cart: CartItem[];
   wishlist: string[];
-  addToCart: (p: Product, qty?: number, size?: string, color?: string, variantId?: string) => void;
+  addToCart: (
+    p: Product,
+    qty?: number,
+    size?: string,
+    color?: string,
+    variantId?: string,
+  ) => boolean;
+  updateCartItemOptions: (
+    cartItemId: string,
+    product: Product,
+    size?: string,
+    color?: string,
+    variantId?: string,
+  ) => boolean;
   removeFromCart: (cartItemId: string) => void;
   updateQty: (cartItemId: string, qty: number) => void;
   clearCart: () => void;
@@ -110,13 +146,39 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     () => ({
       cart,
       wishlist,
-      addToCart: (p, qty = 1, size, color, variantId) =>
+      addToCart: (p, qty = 1, size, color, variantId) => {
+        if (!hasValidVariantSelection(p, size, color, variantId)) return false;
+
         setCart((c) => {
-          const cartItemId = `${p.id}-${size || "nosize"}-${color || "nocolor"}`;
+          const cartItemId = `${p.id}-${variantId ?? "no-variant"}`;
           const ex = c.find((i) => i.id === cartItemId);
           if (ex) return c.map((i) => (i.id === cartItemId ? { ...i, qty: i.qty + qty } : i));
           return [...c, { id: cartItemId, product: p, qty, size, color, variantId }];
-        }),
+        });
+        return true;
+      },
+      updateCartItemOptions: (cartItemId, product, size, color, variantId) => {
+        if (!hasValidVariantSelection(product, size, color, variantId)) return false;
+        const existingItem = cart.find((item) => item.id === cartItemId);
+        if (!existingItem) return false;
+        const nextId = `${product.id}-${variantId ?? "no-variant"}`;
+        const matchingItem = cart.find((item) => item.id === nextId && item.id !== cartItemId);
+        setCart((items) => {
+          if (matchingItem) {
+            return items
+              .filter((item) => item.id !== cartItemId)
+              .map((item) =>
+                item.id === nextId ? { ...item, qty: item.qty + existingItem.qty } : item,
+              );
+          }
+          return items.map((item) =>
+            item.id === cartItemId
+              ? { ...item, id: nextId, product, size, color, variantId }
+              : item,
+          );
+        });
+        return true;
+      },
       removeFromCart: (cartItemId) => setCart((c) => c.filter((i) => i.id !== cartItemId)),
       updateQty: (cartItemId, qty) =>
         setCart((c) =>

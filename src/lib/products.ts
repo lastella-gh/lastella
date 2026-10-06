@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { Lang } from "@/lib/i18n";
 import type { Product, ProductKind, ProductVariant } from "@/lib/store";
 
 type ProductRow = Awaited<ReturnType<typeof loadProducts>>[number];
@@ -7,7 +8,7 @@ type ProductRow = Awaited<ReturnType<typeof loadProducts>>[number];
 const PRODUCT_SELECT = `
   *,
   brand:brands!inner(id, name, slug, visible),
-  variants:product_variants(id, size, color, available)
+  variants:product_variants(id, size, color, size_ar, color_ar, available)
 `;
 
 async function loadProducts(kind?: ProductKind) {
@@ -46,11 +47,30 @@ export function mapProduct(row: ProductRow): Product {
     available: row.available,
     visible: row.visible,
     description: row.description_en || undefined,
+    descriptionAr: row.description_ar || undefined,
     images: row.images?.length ? row.images : [row.image],
     variants,
     sizes: [...new Set(variants.map((variant) => variant.size).filter(Boolean))] as string[],
     colors: [...new Set(variants.map((variant) => variant.color).filter(Boolean))] as string[],
   };
+}
+
+export function getLocalizedProductName(product: Product, language: Lang) {
+  if (language === "en") return product.name.en;
+  if (product.name.ar) return product.name.ar;
+  if (product.kind === "ring_box") return "صندوق خاتم";
+  if (product.kind === "general_box") return "صندوق هدايا";
+  const categoryName: Record<NonNullable<Product["category"]>, string> = {
+    necklace: "قلادة",
+    bracelet: "سوار",
+    bangle: "سوار مفتوح",
+    anklet: "خلخال",
+    ring: "خاتم",
+    earrings: "أقراط",
+    pendant: "دلاية",
+    watch: "ساعة",
+  };
+  return product.category ? `قطعة من فئة ${categoryName[product.category]}` : "قطعة مجوهرات";
 }
 
 export function useProducts(kind: ProductKind = "jewelry") {

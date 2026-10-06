@@ -37,7 +37,7 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComponent({ error }: { error: unknown; reset?: () => void }) {
   const router = useRouter();
 
   return (
@@ -45,7 +45,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
       <div className="max-w-md text-center">
         <h1 className="font-display text-2xl font-semibold">Something went wrong</h1>
         <p className="mt-2 text-sm text-muted-foreground">Try refreshing the page.</p>
-        {error?.message && (
+        {error instanceof Error && error.message && (
           <div className="mt-4 p-3 rounded-lg bg-destructive/10 text-destructive text-xs font-mono text-start break-words max-h-36 overflow-auto border border-destructive/20">
             {error.message}
           </div>

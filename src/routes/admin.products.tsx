@@ -19,7 +19,10 @@ type Product = Tables<"products"> & {
 };
 type ProductKind = Enums<"product_kind">;
 type ProductCategory = Enums<"product_category">;
-type VariantDraft = Pick<ProductVariant, "id" | "size" | "color" | "available">;
+type VariantDraft = Pick<
+  ProductVariant,
+  "id" | "size" | "color" | "size_ar" | "color_ar" | "available"
+>;
 
 const KINDS: { value: ProductKind; label: string }[] = [
   { value: "jewelry", label: "Jewelry" },
@@ -53,7 +56,7 @@ function AdminProducts() {
       supabase
         .from("products")
         .select(
-          "*, brand:brands(id, name, slug), variants:product_variants(id, product_id, size, color, available, created_at, updated_at)",
+          "*, brand:brands(id, name, slug), variants:product_variants(id, product_id, size, color, size_ar, color_ar, available, created_at, updated_at)",
         )
         .order("created_at", { ascending: false }),
       supabase.from("brands").select("*").order("name"),
@@ -393,10 +396,38 @@ function ProductForm({
       ...variant,
       size: variant.size?.trim() || null,
       color: variant.color?.trim() || null,
+      size_ar: variant.size_ar?.trim() || null,
+      color_ar: variant.color_ar?.trim() || null,
     }));
     if (kind === "jewelry") {
       if (cleanedVariants.some((variant) => !variant.size && !variant.color)) {
         toast.error("Each variant needs a size, a color, or both");
+        return;
+      }
+      if (
+        cleanedVariants.some(
+          (variant) =>
+            (variant.color && !variant.color_ar) ||
+            (variant.size && !/^\d+(?:\.\d+)?$/.test(variant.size) && !variant.size_ar),
+        )
+      ) {
+        toast.error("Add Arabic labels for every text color and size option");
+        return;
+      }
+      const labelsAreConsistent = (key: "color" | "size", arabicKey: "color_ar" | "size_ar") => {
+        const labels = new Map<string, string>();
+        for (const variant of cleanedVariants) {
+          const value = variant[key];
+          const label = variant[arabicKey];
+          if (!value || !label) continue;
+          const existingLabel = labels.get(value);
+          if (existingLabel && existingLabel !== label) return false;
+          labels.set(value, label);
+        }
+        return true;
+      };
+      if (!labelsAreConsistent("color", "color_ar") || !labelsAreConsistent("size", "size_ar")) {
+        toast.error("Use the same Arabic label for matching variant options");
         return;
       }
       const optionKeys = cleanedVariants.map(variantKey);
@@ -796,7 +827,14 @@ function ProductForm({
                     onClick={() =>
                       setVariants((current) => [
                         ...current,
-                        { id: crypto.randomUUID(), size: "", color: "", available: true },
+                        {
+                          id: crypto.randomUUID(),
+                          size: "",
+                          color: "",
+                          size_ar: "",
+                          color_ar: "",
+                          available: true,
+                        },
                       ])
                     }
                     className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium hover:bg-secondary"
@@ -808,7 +846,7 @@ function ProductForm({
                   {variants.map((variant, index) => (
                     <div
                       key={variant.id}
-                      className="grid items-center gap-2 rounded-xl border border-border/50 bg-background p-3 sm:grid-cols-[1fr_1fr_auto_auto]"
+                      className="grid items-center gap-2 rounded-xl border border-border/50 bg-background p-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_auto_auto]"
                     >
                       <input
                         value={variant.size ?? ""}
@@ -822,6 +860,24 @@ function ProductForm({
                         onChange={(event) => updateVariant(index, { color: event.target.value })}
                         placeholder="Color (optional)"
                         aria-label={`Variant ${index + 1} color`}
+                        className={inputClass}
+                      />
+                      <input
+                        value={variant.size_ar ?? ""}
+                        onChange={(event) => updateVariant(index, { size_ar: event.target.value })}
+                        placeholder="Arabic size"
+                        aria-label={`Variant ${index + 1} Arabic size`}
+                        lang="ar"
+                        dir="rtl"
+                        className={inputClass}
+                      />
+                      <input
+                        value={variant.color_ar ?? ""}
+                        onChange={(event) => updateVariant(index, { color_ar: event.target.value })}
+                        placeholder="Arabic color"
+                        aria-label={`Variant ${index + 1} Arabic color`}
+                        lang="ar"
+                        dir="rtl"
                         className={inputClass}
                       />
                       <label className="flex items-center gap-2 whitespace-nowrap px-2 text-sm">
@@ -1004,6 +1060,8 @@ async function replaceVariants(
       product_id: productId,
       size: variant.size || null,
       color: variant.color || null,
+      size_ar: variant.size_ar || null,
+      color_ar: variant.color_ar || null,
       available: variant.available,
     };
   });

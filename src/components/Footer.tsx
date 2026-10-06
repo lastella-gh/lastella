@@ -1,10 +1,11 @@
 import { Link } from "@tanstack/react-router";
 import { Instagram, Facebook, Twitter, Youtube, Mail } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
+import { formatNumber } from "@/lib/currency";
 import { Logo } from "./Logo";
 
 export function Footer() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   return (
     <footer className="mt-24 border-t border-border bg-gradient-to-b from-background to-primary/5">
       <div className="mx-auto grid min-w-0 max-w-7xl gap-12 px-4 py-16 sm:px-6 md:grid-cols-4 lg:px-8">
@@ -131,7 +132,7 @@ export function Footer() {
       <div className="border-t border-border/60">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-4 py-6 text-center text-xs text-muted-foreground sm:flex-row sm:px-6 sm:text-left lg:px-8">
           <p className="min-w-0 break-words">
-            © {new Date().getFullYear()} Lastella. {t("footer.rights")}
+            © {formatNumber(new Date().getFullYear(), lang)} Lastella. {t("footer.rights")}
           </p>
           <p className="min-w-0 break-words text-center uppercase tracking-[0.3em]">
             {t("brand.tagline")}

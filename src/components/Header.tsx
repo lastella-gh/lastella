@@ -3,6 +3,7 @@ import { Heart, Search, ShoppingBag, User, Menu, X, Globe, ShieldCheck } from "l
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/lib/i18n";
+import { formatNumber } from "@/lib/currency";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { Logo } from "./Logo";
@@ -108,7 +109,7 @@ export function Header() {
               <Heart className="h-5 w-5" />
               {wishlist.length > 0 && (
                 <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
-                  {wishlist.length}
+                  {formatNumber(wishlist.length, lang)}
                 </span>
               )}
             </Link>
@@ -120,7 +121,7 @@ export function Header() {
               <ShoppingBag className="h-5 w-5" />
               {cartCount > 0 && (
                 <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
-                  {cartCount}
+                  {formatNumber(cartCount, lang)}
                 </span>
               )}
             </Link>

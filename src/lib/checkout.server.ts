@@ -58,7 +58,7 @@ export async function createCheckoutOrder(
       p_phone: input.phone,
       p_address: input.address,
       p_city: input.city,
-      p_postal_code: input.postalCode,
+      p_postal_code: "",
       p_country: input.country,
       p_delivery_type: input.deliveryType,
       p_notes: input.notes,

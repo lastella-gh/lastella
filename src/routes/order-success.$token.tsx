@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { getOrderSuccessFn } from "@/lib/order-success.functions";
 import { formatPrice } from "@/lib/currency";
+import { formatNumber } from "@/lib/currency";
+import { useI18n } from "@/lib/i18n";
 
 export const Route = createFileRoute("/order-success/$token")({
   loader: ({ params }) => getOrderSuccessFn({ data: { token: params.token } }),
@@ -26,6 +28,7 @@ export const Route = createFileRoute("/order-success/$token")({
 
 function OrderSuccess() {
   const order = Route.useLoaderData();
+  const { lang } = useI18n();
   return (
     <main className="mx-auto max-w-2xl px-4 py-16 sm:px-6">
       <div className="glass rounded-3xl p-6 sm:p-10">
@@ -36,7 +39,7 @@ function OrderSuccess() {
           <Info label="Status" value={order.status} />
           <Info label="Payment" value={order.paymentStatus} />
           <Info label="Delivery" value={order.deliveryType} />
-          <Info label="Total" value={formatPrice(order.total)} />
+          <Info label="Total" value={formatPrice(order.total, lang)} />
         </div>
         <div className="mt-8 border-t border-border pt-6">
           <p className="text-sm text-muted-foreground">
@@ -47,9 +50,9 @@ function OrderSuccess() {
             {order.items.map((item) => (
               <li className="flex justify-between gap-4" key={`${item.name}-${item.quantity}`}>
                 <span>
-                  {item.name} ×{item.quantity}
+                  {item.name} ×{formatNumber(item.quantity, lang)}
                 </span>
-                <span>{formatPrice(item.unitPrice)}</span>
+                <span>{formatPrice(item.unitPrice, lang)}</span>
               </li>
             ))}
           </ul>

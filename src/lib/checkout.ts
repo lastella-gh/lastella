@@ -14,7 +14,6 @@ export const checkoutSchema = z.object({
   phone: z.string().trim().max(50),
   address: z.string().trim().min(1).max(500),
   city: z.string().trim().min(1).max(120),
-  postalCode: z.string().trim().max(30),
   country: z.string().trim().min(1).max(120),
   deliveryType: z.enum(["home", "office"]),
   notes: z.string().trim().max(1_000),

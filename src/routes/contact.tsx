@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Mail, Phone, MapPin, MessageCircle, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/lib/i18n";
+import { formatDigits } from "@/lib/currency";
 
 export const Route = createFileRoute("/contact")({
   head: () => ({
@@ -93,7 +94,9 @@ function Contact() {
                 <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">
                   {title}
                 </p>
-                <p className="font-display text-lg">{text}</p>
+                <p className="font-display text-lg">
+                  {lang === "ar" && title === "ساعات العمل" ? formatDigits(text, lang) : text}
+                </p>
               </div>
             </div>
           ))}

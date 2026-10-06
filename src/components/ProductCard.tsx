@@ -1,13 +1,15 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Heart, Eye, ShoppingBag, Star } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useStore, type Product } from "@/lib/store";
-import { formatPrice } from "@/lib/currency";
+import { formatNumber, formatPrice } from "@/lib/currency";
+import { getLocalizedProductName } from "@/lib/products";
 import { toast } from "sonner";
 
 export function ProductCard({ product }: { product: Product }) {
   const { t, lang } = useI18n();
   const { addToCart, toggleWishlist, wishlist } = useStore();
+  const navigate = useNavigate();
 
   if (!product) return null;
 
@@ -17,10 +19,7 @@ export function ProductCard({ product }: { product: Product }) {
   const discount =
     oldPrice && oldPrice > price ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0;
 
-  const nameText =
-    typeof product.name === "object" && product.name !== null
-      ? product.name[lang] || product.name.en || product.name.ar || ""
-      : String(product.name || "");
+  const nameText = getLocalizedProductName(product, lang);
   const requiresOptions = product.variants.length > 0;
 
   const ratingVal =
@@ -61,12 +60,12 @@ export function ProductCard({ product }: { product: Product }) {
             )}
             {discount > 0 && (
               <span className="rounded-full bg-foreground text-background text-[10px] font-semibold px-2.5 py-1">
-                -{discount}%
+                -{formatNumber(discount, lang)}%
               </span>
             )}
             {!product.available && (
               <span className="rounded-full bg-foreground text-background text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1">
-                Unavailable
+                {t("product.unavailable")}
               </span>
             )}
           </div>
@@ -78,7 +77,7 @@ export function ProductCard({ product }: { product: Product }) {
                 toggleWishlist(product.id);
               }}
               className="grid place-items-center h-9 w-9 rounded-full glass hover:bg-primary hover:text-primary-foreground transition-all"
-              aria-label="Wishlist"
+              aria-label={t("product.wishlist")}
             >
               <Heart className={`h-4 w-4 ${wished ? "fill-primary text-primary" : ""}`} />
             </button>
@@ -95,18 +94,25 @@ export function ProductCard({ product }: { product: Product }) {
             <button
               onClick={(e) => {
                 e.preventDefault();
-                if (!product.available || requiresOptions) return;
-                addToCart(product);
-                toast.success(`${nameText} added to cart`);
+                if (!product.available) return;
+                if (requiresOptions) {
+                  void navigate({ to: "/product/$slug", params: { slug: product.slug } });
+                  return;
+                }
+                if (!addToCart(product)) {
+                  toast.error(t("product.optionUnavailable"));
+                  return;
+                }
+                toast.success(`${nameText} ${lang === "ar" ? "أضيفت إلى السلة" : "added to cart"}`);
               }}
               disabled={!product.available}
               className="w-full glass-dark rounded-full py-2.5 text-xs font-semibold uppercase tracking-[0.15em] flex items-center justify-center gap-2 hover:bg-primary hover:text-primary-foreground transition-all disabled:cursor-not-allowed disabled:opacity-60"
             >
               <ShoppingBag className="h-3.5 w-3.5" />
               {!product.available
-                ? "Unavailable"
+                ? t("product.unavailable")
                 : requiresOptions
-                  ? "Choose options"
+                  ? t("product.chooseOptions")
                   : t("product.addToCart")}
             </button>
           </div>
@@ -114,18 +120,23 @@ export function ProductCard({ product }: { product: Product }) {
         <div className="mt-3 space-y-1">
           <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <Star className="h-3 w-3 fill-primary text-primary" />
-            <span>{ratingVal.toFixed(1)}</span>
+            <span>
+              {formatNumber(ratingVal, lang, {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1,
+              })}
+            </span>
             <span>·</span>
-            <span>{reviewsVal}</span>
+            <span>{formatNumber(reviewsVal, lang)}</span>
           </div>
           <h3 className="font-display text-lg leading-snug text-foreground group-hover:text-primary transition-colors">
             {nameText}
           </h3>
           <div className="flex items-baseline gap-2 flex-wrap">
-            <span className="text-base font-semibold">{formatPrice(price)}</span>
+            <span className="text-base font-semibold">{formatPrice(price, lang)}</span>
             {oldPrice && oldPrice > 0 && (
               <span className="text-sm text-muted-foreground line-through">
-                {formatPrice(oldPrice)}
+                {formatPrice(oldPrice, lang)}
               </span>
             )}
           </div>

@@ -12,14 +12,16 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState, type MouseEvent } from "react";
+import { z } from "zod";
 import { toast } from "sonner";
 import { ProductCard } from "@/components/ProductCard";
-import { formatPrice } from "@/lib/currency";
+import { formatNumber, formatNumericLabel, formatPrice } from "@/lib/currency";
 import { useI18n } from "@/lib/i18n";
-import { getPublicProductBySlug, useProducts } from "@/lib/products";
+import { getLocalizedProductName, getPublicProductBySlug, useProducts } from "@/lib/products";
 import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/product/$slug")({
+  validateSearch: z.object({ cartItemId: z.string().optional() }),
   loader: async ({ params }) => {
     const product = await getPublicProductBySlug(params.slug);
     if (!product) throw notFound();
@@ -37,8 +39,17 @@ export const Route = createFileRoute("/product/$slug")({
   pendingMinMs: 150,
   pendingComponent: ProductPending,
   component: ProductPage,
-  notFoundComponent: () => <div className="p-20 text-center">Product not found.</div>,
+  notFoundComponent: ProductNotFound,
 });
+
+function ProductNotFound() {
+  const { lang } = useI18n();
+  return (
+    <div className="p-20 text-center">
+      {lang === "ar" ? "المنتج غير موجود." : "Product not found."}
+    </div>
+  );
+}
 
 function ProductPending() {
   return (
@@ -59,16 +70,13 @@ function ProductPending() {
 
 function ProductPage() {
   const { product } = Route.useLoaderData();
+  const { cartItemId } = Route.useSearch();
   const { t, lang } = useI18n();
-  const { addToCart, toggleWishlist, wishlist } = useStore();
-  const firstAvailableVariant = product.variants.find((variant) => variant.available);
+  const { addToCart, updateCartItemOptions, toggleWishlist, wishlist } = useStore();
+  const productName = getLocalizedProductName(product, lang);
   const [qty, setQty] = useState(1);
-  const [selectedColor, setSelectedColor] = useState<string | undefined>(
-    firstAvailableVariant?.color ?? product.colors[0],
-  );
-  const [selectedSize, setSelectedSize] = useState<string | undefined>(
-    firstAvailableVariant?.size ?? product.sizes[0],
-  );
+  const [selectedColor, setSelectedColor] = useState<string | undefined>();
+  const [selectedSize, setSelectedSize] = useState<string | undefined>();
   const [activeImage, setActiveImage] = useState(product.image);
   const [imageOpen, setImageOpen] = useState(false);
   const [imageZoomed, setImageZoomed] = useState(false);
@@ -89,13 +97,23 @@ function ProductPage() {
     };
   }, [imageOpen]);
 
-  const selectedVariant = product.variants.find(
+  const matchingVariants = product.variants.filter(
     (variant) =>
-      (variant.color ?? undefined) === selectedColor &&
-      (variant.size ?? undefined) === selectedSize,
+      (variant.color === null || variant.color === selectedColor) &&
+      (variant.size === null || variant.size === selectedSize) &&
+      (selectedColor === undefined || variant.color === selectedColor) &&
+      (selectedSize === undefined || variant.size === selectedSize),
   );
+  const selectedVariant = matchingVariants.length === 1 ? matchingVariants[0] : undefined;
+  const selectionComplete =
+    Boolean(selectedVariant) ||
+    (product.colors.length > 0 &&
+      product.sizes.length > 0 &&
+      selectedColor !== undefined &&
+      selectedSize !== undefined);
   const purchasable =
-    product.available && (product.variants.length === 0 || Boolean(selectedVariant?.available));
+    product.available &&
+    (product.variants.length === 0 || (selectionComplete && Boolean(selectedVariant?.available)));
   const matchingRings =
     product.kind === "jewelry" && product.category !== "ring" && selectedColor
       ? jewelry
@@ -116,11 +134,27 @@ function ProductPage() {
 
   function addCurrentProduct() {
     if (!purchasable) {
-      toast.error("This product option is unavailable");
+      toast.error(
+        !product.available
+          ? t("product.unavailable")
+          : !selectionComplete
+            ? t("product.selectOptions")
+            : t("product.optionUnavailable"),
+      );
       return;
     }
-    addToCart(product, qty, selectedSize, selectedColor, selectedVariant?.id);
-    toast.success(`${product.name[lang] || product.name.en} added to cart`);
+    const added = cartItemId
+      ? updateCartItemOptions(cartItemId, product, selectedSize, selectedColor, selectedVariant?.id)
+      : addToCart(product, qty, selectedSize, selectedColor, selectedVariant?.id);
+    if (!added) {
+      toast.error(t("product.optionUnavailable"));
+      return;
+    }
+    toast.success(
+      cartItemId
+        ? t("product.updateCartItem")
+        : `${productName} ${lang === "ar" ? "أضيفت إلى السلة" : "added to cart"}`,
+    );
   }
 
   function updateZoomPosition(event: MouseEvent<HTMLDivElement>) {
@@ -154,7 +188,7 @@ function ProductPage() {
         <Link to="/shop" className="hover:text-primary">
           {t("nav.shop")}
         </Link>{" "}
-        / <span className="text-foreground">{product.name[lang] || product.name.en}</span>
+        / <span className="text-foreground">{productName}</span>
       </nav>
 
       <div className="grid gap-10 lg:grid-cols-2 lg:gap-16">
@@ -165,11 +199,7 @@ function ProductPage() {
             className="aspect-square w-full cursor-zoom-in overflow-hidden rounded-3xl bg-secondary lg:hidden"
             aria-label={lang === "ar" ? "تكبير صورة المنتج" : "Enlarge product image"}
           >
-            <img
-              src={activeImage}
-              alt={product.name[lang] || product.name.en}
-              className="h-full w-full object-cover"
-            />
+            <img src={activeImage} alt={productName} className="h-full w-full object-cover" />
           </button>
           <div
             onMouseEnter={() => setImageZoomed(true)}
@@ -180,7 +210,7 @@ function ProductPage() {
           >
             <img
               src={activeImage}
-              alt={product.name[lang] || product.name.en}
+              alt={productName}
               className="h-full w-full object-cover transition-transform duration-150 ease-out"
               style={{
                 transform: imageZoomed ? "scale(2.35)" : "scale(1)",
@@ -208,9 +238,7 @@ function ProductPage() {
           <p className="mb-3 text-xs font-medium uppercase tracking-[0.35em] text-primary">
             {product.brand?.name} · {categoryLabel}
           </p>
-          <h1 className="font-display text-4xl leading-tight sm:text-5xl">
-            {product.name[lang] || product.name.en}
-          </h1>
+          <h1 className="font-display text-4xl leading-tight sm:text-5xl">{productName}</h1>
           <div className="mt-4 flex items-center gap-2 text-sm">
             <div className="flex gap-0.5">
               {Array.from({ length: 5 }).map((_, index) => (
@@ -221,42 +249,54 @@ function ProductPage() {
               ))}
             </div>
             <span className="text-muted-foreground">
-              {product.rating} · {product.reviews} reviews
+              {formatNumber(product.rating, lang, { maximumFractionDigits: 1 })} ·{" "}
+              {formatNumber(product.reviews, lang)} {t("product.reviews")}
             </span>
           </div>
           <div className="mt-6 flex flex-wrap items-baseline gap-3">
-            <span className="font-display text-4xl">{formatPrice(product.price)}</span>
+            <span className="font-display text-4xl">{formatPrice(product.price, lang)}</span>
             {product.oldPrice && (
               <span className="text-lg text-muted-foreground line-through">
-                {formatPrice(product.oldPrice)}
+                {formatPrice(product.oldPrice, lang)}
               </span>
             )}
           </div>
           {!product.available && (
             <p className="mt-4 inline-flex rounded-full bg-destructive/10 px-4 py-2 text-sm font-semibold text-destructive">
-              Currently unavailable
+              {t("product.unavailable")}
             </p>
           )}
           <p className="mt-6 leading-relaxed text-foreground/75">
-            {product.description ??
-              "Beautifully presented and selected for the Lastella collection."}
+            {lang === "ar"
+              ? product.descriptionAr || "قطعة مختارة بعناية لتضيف لمسة من الأناقة إلى مجموعتك."
+              : product.description ||
+                "Beautifully presented and selected for the Lastella collection."}
           </p>
 
           <div className="mt-8 space-y-5">
-            {product.colors.length > 0 && (
-              <OptionGroup
-                label="Color"
-                options={product.colors}
-                selected={selectedColor}
-                onSelect={setSelectedColor}
-              />
-            )}
             {product.sizes.length > 0 && (
               <OptionGroup
-                label={product.category === "ring" ? "Ring Size" : "Size"}
+                label={product.category === "ring" ? t("product.ringSize") : t("product.size")}
                 options={product.sizes}
                 selected={selectedSize}
                 onSelect={setSelectedSize}
+                language={lang}
+                arabicLabel={(option) =>
+                  product.variants.find((variant) => variant.size === option)?.size_ar ||
+                  formatNumericLabel(option, lang)
+                }
+              />
+            )}
+            {product.colors.length > 0 && (
+              <OptionGroup
+                label={t("product.color")}
+                options={product.colors}
+                selected={selectedColor}
+                onSelect={setSelectedColor}
+                language={lang}
+                arabicLabel={(option) =>
+                  product.variants.find((variant) => variant.color === option)?.color_ar || option
+                }
               />
             )}
           </div>
@@ -267,16 +307,16 @@ function ProductPage() {
                 type="button"
                 onClick={() => setQty(Math.max(1, qty - 1))}
                 className="p-3"
-                aria-label="Decrease"
+                aria-label={t("product.decrease")}
               >
                 <Minus className="h-4 w-4" />
               </button>
-              <span className="w-10 text-center font-semibold">{qty}</span>
+              <span className="w-10 text-center font-semibold">{formatNumber(qty, lang)}</span>
               <button
                 type="button"
                 onClick={() => setQty(qty + 1)}
                 className="p-3"
-                aria-label="Increase"
+                aria-label={t("product.increase")}
               >
                 <Plus className="h-4 w-4" />
               </button>
@@ -288,13 +328,21 @@ function ProductPage() {
               className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-primary px-8 py-4 text-sm font-semibold uppercase tracking-[0.15em] text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
             >
               <ShoppingBag className="h-4 w-4" />{" "}
-              {purchasable ? t("product.addToCart") : "Unavailable"}
+              {purchasable
+                ? cartItemId
+                  ? t("product.updateCartItem")
+                  : t("product.addToCart")
+                : !product.available
+                  ? t("product.unavailable")
+                  : selectionComplete
+                    ? t("product.optionUnavailable")
+                    : t("product.selectOptions")}
             </button>
             <button
               type="button"
               onClick={() => toggleWishlist(product.id)}
               className="grid h-14 w-14 place-items-center rounded-full border border-border"
-              aria-label="Wishlist"
+              aria-label={t("product.wishlist")}
             >
               <Heart
                 className={`h-5 w-5 ${wishlist.includes(product.id) ? "fill-primary text-primary" : ""}`}
@@ -303,7 +351,7 @@ function ProductPage() {
           </div>
 
           <div className="mt-8 grid grid-cols-3 gap-3 text-xs">
-            <Feature Icon={Truck} label="Delivery across Oman" />
+            <Feature Icon={Truck} label={t("product.deliveryOman")} />
             <Feature Icon={Shield} label={t("common.lifetime")} />
             <Feature Icon={RotateCcw} label={t("common.returns")} />
           </div>
@@ -314,7 +362,13 @@ function ProductPage() {
         <section className="mt-20 rounded-3xl border border-primary/20 bg-primary/5 p-6 sm:p-8">
           <div className="mb-6 flex items-center gap-3">
             <Sparkles className="h-5 w-5 text-primary" />
-            <h2 className="font-display text-3xl">Rings in {selectedColor}</h2>
+            <h2 className="font-display text-3xl">
+              {t("product.ringsIn")}{" "}
+              {lang === "ar"
+                ? product.variants.find((variant) => variant.color === selectedColor)?.color_ar ||
+                  selectedColor
+                : selectedColor}
+            </h2>
           </div>
           <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
             {matchingRings.map((ring) => (
@@ -355,7 +409,7 @@ function ProductPage() {
           </button>
           <img
             src={activeImage}
-            alt={product.name[lang] || product.name.en}
+            alt={productName}
             className="max-h-full max-w-full object-contain"
             onClick={(event) => event.stopPropagation()}
           />
@@ -370,11 +424,15 @@ function OptionGroup({
   options,
   selected,
   onSelect,
+  language,
+  arabicLabel,
 }: {
   label: string;
   options: string[];
   selected?: string;
-  onSelect: (value: string) => void;
+  onSelect: (value: string | undefined) => void;
+  language: "en" | "ar";
+  arabicLabel: (value: string) => string;
 }) {
   return (
     <div>
@@ -384,10 +442,11 @@ function OptionGroup({
           <button
             key={option}
             type="button"
-            onClick={() => onSelect(option)}
+            onClick={() => onSelect(selected === option ? undefined : option)}
+            aria-pressed={selected === option}
             className={`rounded-full border px-4 py-2 text-sm ${selected === option ? "border-primary bg-primary/5 text-primary" : "border-border"}`}
           >
-            {option}
+            {language === "ar" ? arabicLabel(option) : option}
           </button>
         ))}
       </div>

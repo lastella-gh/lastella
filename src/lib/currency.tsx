@@ -1,8 +1,30 @@
 export const CURRENCY = "OMR";
 
-export function formatPriceText(amount: number): string {
+export type DisplayLanguage = "en" | "ar";
+
+export function formatNumber(
+  amount: number,
+  language: DisplayLanguage = "en",
+  options: Intl.NumberFormatOptions = {},
+): string {
+  return new Intl.NumberFormat(language === "ar" ? "ar-OM-u-nu-arab" : "en-US", options).format(
+    Number(amount || 0),
+  );
+}
+
+export function formatNumericLabel(value: string, language: DisplayLanguage): string {
+  if (language === "en" || !/^\d+(?:\.\d+)?$/.test(value)) return value;
+  return formatDigits(value, language);
+}
+
+export function formatDigits(value: string, language: DisplayLanguage): string {
+  if (language === "en") return value;
+  return value.replace(/\d/g, (digit) => "٠١٢٣٤٥٦٧٨٩"[Number(digit)]);
+}
+
+export function formatPriceText(amount: number, language: DisplayLanguage = "en"): string {
   const num = Number(amount || 0);
-  const formatted = num.toLocaleString("en-US", {
+  const formatted = formatNumber(num, language, {
     minimumFractionDigits: 3,
     maximumFractionDigits: 3,
   });
@@ -25,8 +47,8 @@ export function OmaniRialSymbol({ className = "" }: { className?: string }) {
   );
 }
 
-export function formatPrice(amount: number) {
-  const text = formatPriceText(amount);
+export function formatPrice(amount: number, language: DisplayLanguage = "en") {
+  const text = formatPriceText(amount, language);
   const formatted = text.slice(CURRENCY.length + 1);
 
   return (

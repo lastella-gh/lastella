@@ -4,6 +4,7 @@ import { SlidersHorizontal } from "lucide-react";
 import { ProductCard } from "@/components/ProductCard";
 import { useAllBoxProducts, useProducts } from "@/lib/products";
 import { useI18n } from "@/lib/i18n";
+import { formatNumber } from "@/lib/currency";
 import { z } from "zod";
 
 export const Route = createFileRoute("/shop")({
@@ -225,7 +226,7 @@ function Shop() {
         <div>
           <div className="flex items-center justify-between mb-6">
             <p className="text-sm text-muted-foreground">
-              {filtered.length} {lang === "ar" ? "قطعة" : "pieces"}
+              {formatNumber(filtered.length, lang)} {lang === "ar" ? "قطعة" : "pieces"}
             </p>
             <select
               aria-label={lang === "ar" ? "ترتيب المنتجات" : "Sort products"}

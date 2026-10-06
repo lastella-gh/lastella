@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Minus, Plus, Trash2, ShoppingBag } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
-import { useStore } from "@/lib/store";
-import { formatPrice } from "@/lib/currency";
+import { isCartItemPurchasable, useStore } from "@/lib/store";
+import { formatNumber, formatNumericLabel, formatPrice } from "@/lib/currency";
+import { getLocalizedProductName } from "@/lib/products";
 
 export const Route = createFileRoute("/cart")({
   head: () => ({
@@ -17,6 +18,7 @@ export const Route = createFileRoute("/cart")({
 function Cart() {
   const { t, lang } = useI18n();
   const { cart, updateQty, removeFromCart, cartTotal } = useStore();
+  const itemsNeedingOptions = cart.filter((item) => !isCartItemPurchasable(item));
 
   if (cart.length === 0) {
     return (
@@ -61,17 +63,25 @@ function Cart() {
                     params={{ slug: product.slug }}
                     className="font-display text-xl sm:text-2xl hover:text-primary transition-colors"
                   >
-                    {product.name[lang]}
+                    {getLocalizedProductName(product, lang)}
                   </Link>
                   <div className="text-sm text-muted-foreground mt-1 flex gap-3">
                     {size && (
                       <span>
-                        {lang === "ar" ? "المقاس" : "Size"}: {size}
+                        {t("product.size")}:{" "}
+                        {lang === "ar"
+                          ? product.variants.find((variant) => variant.size === size)?.size_ar ||
+                            formatNumericLabel(size, lang)
+                          : size}
                       </span>
                     )}
                     {color && (
                       <span>
-                        {lang === "ar" ? "اللون" : "Color"}: {color}
+                        {t("product.color")}:{" "}
+                        {lang === "ar"
+                          ? product.variants.find((variant) => variant.color === color)?.color_ar ||
+                            color
+                          : color}
                       </span>
                     )}
                   </div>
@@ -85,7 +95,7 @@ function Cart() {
                     >
                       <Minus className="h-3.5 w-3.5" />
                     </button>
-                    <span className="w-8 text-center text-sm">{qty}</span>
+                    <span className="w-8 text-center text-sm">{formatNumber(qty, lang)}</span>
                     <button
                       onClick={() => updateQty(id, qty + 1)}
                       className="p-2 hover:text-primary"
@@ -95,7 +105,7 @@ function Cart() {
                     </button>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span className="font-semibold">{formatPrice(product.price * qty)}</span>
+                    <span className="font-semibold">{formatPrice(product.price * qty, lang)}</span>
                     <button
                       onClick={() => removeFromCart(id)}
                       className="text-muted-foreground hover:text-destructive"
@@ -117,7 +127,7 @@ function Cart() {
           <div className="space-y-3 text-sm">
             <Row
               label={lang === "ar" ? "المجموع الفرعي" : "Subtotal"}
-              value={formatPrice(cartTotal)}
+              value={formatPrice(cartTotal, lang)}
             />
             <Row
               label={lang === "ar" ? "التوصيل" : "Delivery"}
@@ -127,13 +137,33 @@ function Cart() {
               <Row
                 large
                 label={lang === "ar" ? "المجموع الفرعي" : "Subtotal"}
-                value={formatPrice(cartTotal)}
+                value={formatPrice(cartTotal, lang)}
               />
             </div>
           </div>
+          {itemsNeedingOptions.length > 0 && (
+            <div className="mt-4 space-y-2 rounded-xl bg-destructive/10 p-3 text-sm text-destructive">
+              <p>{t("cart.optionRequired")}</p>
+              {itemsNeedingOptions.map((item) => (
+                <Link
+                  key={item.id}
+                  to="/product/$slug"
+                  params={{ slug: item.product.slug }}
+                  search={{ cartItemId: item.id }}
+                  className="block underline"
+                >
+                  {getLocalizedProductName(item.product, lang)}
+                </Link>
+              ))}
+            </div>
+          )}
           <Link
             to="/checkout"
-            className="mt-6 w-full inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground px-6 py-4 text-sm font-semibold uppercase tracking-[0.15em] hover:bg-rose-deep transition-all"
+            aria-disabled={itemsNeedingOptions.length > 0}
+            onClick={(event) => {
+              if (itemsNeedingOptions.length > 0) event.preventDefault();
+            }}
+            className={`mt-6 w-full inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground px-6 py-4 text-sm font-semibold uppercase tracking-[0.15em] hover:bg-rose-deep transition-all ${itemsNeedingOptions.length > 0 ? "pointer-events-none opacity-50" : ""}`}
           >
             {lang === "ar" ? "إتمام الشراء" : "Proceed to Checkout"}
           </Link>

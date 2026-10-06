@@ -8,12 +8,13 @@ import {
   preparePaymentProofUpload,
   submitCheckout,
 } from "@/lib/checkout.functions";
-import { formatPrice } from "@/lib/currency";
+import { formatNumber, formatNumericLabel, formatPrice } from "@/lib/currency";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import { useBoxProducts } from "@/lib/products";
 import { useStoreSettings } from "@/lib/settings";
-import { useStore, type Product } from "@/lib/store";
+import { isCartItemPurchasable, useStore, type Product } from "@/lib/store";
+import { getLocalizedProductName } from "@/lib/products";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/checkout")({
@@ -49,10 +50,17 @@ function Checkout() {
   );
   const shippingBaisa = deliveryType ? deliveryFeeBaisa(deliveryType) : 0;
   const total = fromBaisa(toBaisa(cartTotal) + shippingBaisa);
+  const cartItemsNeedingOptions = cart.filter((item) => !isCartItemPurchasable(item));
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (cart.length === 0) return toast.error("Your cart is empty");
+    if (cartItemsNeedingOptions.length > 0)
+      return toast.error(
+        lang === "ar"
+          ? "اختاري خيارات المنتجات قبل إتمام الشراء"
+          : "Choose product options before checkout",
+      );
     if (!deliveryType) return toast.error("Select Home or Office Delivery");
     if (!proof) return toast.error("Upload your bank transfer proof first");
     const form = new FormData(event.currentTarget);
@@ -66,7 +74,6 @@ function Checkout() {
             phone: String(form.get("phone")),
             address: String(form.get("address")),
             city: String(form.get("city")),
-            postalCode: String(form.get("postal_code") || ""),
             country: String(form.get("country") || "Sultanate of Oman"),
             deliveryType,
             notes: String(form.get("notes") || ""),
@@ -123,6 +130,7 @@ function Checkout() {
                 title="Home Delivery"
                 subtitle="Residential address"
                 price={2}
+                language={lang}
               />
               <DeliveryCard
                 type="office"
@@ -132,6 +140,7 @@ function Checkout() {
                 title="Office Delivery"
                 subtitle="Workplace address"
                 price={1}
+                language={lang}
               />
             </div>
           </Section>
@@ -160,9 +169,8 @@ function Checkout() {
               }
               required
             />
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <Input name="city" placeholder="City" required />
-              <Input name="postal_code" placeholder="Postal code" />
               <Input
                 name="country"
                 defaultValue="Sultanate of Oman"
@@ -178,10 +186,14 @@ function Checkout() {
           </Section>
 
           {hasRings && suggestedRingBoxes.length > 0 && (
-            <BoxSuggestions title="Ring Boxes" products={suggestedRingBoxes} />
+            <BoxSuggestions title="Ring Boxes" products={suggestedRingBoxes} language={lang} />
           )}
           {hasOtherJewelry && suggestedGeneralBoxes.length > 0 && (
-            <BoxSuggestions title="General Gift Boxes" products={suggestedGeneralBoxes} />
+            <BoxSuggestions
+              title="General Gift Boxes"
+              products={suggestedGeneralBoxes}
+              language={lang}
+            />
           )}
 
           <Section title={lang === "ar" ? "طريقة الدفع" : "Payment Method"}>
@@ -269,7 +281,7 @@ function Checkout() {
         <aside className="glass min-w-0 h-fit rounded-2xl p-6 lg:sticky lg:top-32">
           <h2 className="mb-6 font-display text-2xl">{lang === "ar" ? "ملخص" : "Summary"}</h2>
           <div className="max-h-64 space-y-3 overflow-auto pr-2">
-            {cart.map(({ id, product, qty, size, color }) => (
+            {cart.map(({ id, product, qty, size, color, variantId }) => (
               <div key={id} className="flex gap-3 text-sm">
                 <img
                   src={product.image}
@@ -277,30 +289,57 @@ function Checkout() {
                   className="h-14 w-14 shrink-0 rounded-lg object-cover"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate">{product.name[lang] || product.name.en}</p>
+                  <p className="truncate">{getLocalizedProductName(product, lang)}</p>
                   <p className="text-xs text-muted-foreground">
-                    ×{qty}
-                    {size ? ` | ${size}` : ""}
-                    {color ? ` | ${color}` : ""}
+                    ×{formatNumber(qty, lang)}
+                    {size
+                      ? ` | ${lang === "ar" ? product.variants.find((variant) => variant.id === variantId)?.size_ar || formatNumericLabel(size, lang) : size}`
+                      : ""}
+                    {color
+                      ? ` | ${lang === "ar" ? product.variants.find((variant) => variant.id === variantId)?.color_ar || color : color}`
+                      : ""}
                   </p>
+                  {!isCartItemPurchasable({ id, product, qty, size, color, variantId }) && (
+                    <Link
+                      to="/product/$slug"
+                      params={{ slug: product.slug }}
+                      search={{ cartItemId: id }}
+                      className="text-xs text-destructive underline"
+                    >
+                      {lang === "ar" ? "اختاري الخيارات من جديد" : "Select options again"}
+                    </Link>
+                  )}
                 </div>
                 <span className="whitespace-nowrap font-medium">
-                  {formatPrice(product.price * qty)}
+                  {formatPrice(product.price * qty, lang)}
                 </span>
               </div>
             ))}
           </div>
           <div className="mt-6 space-y-2 border-t border-border pt-4 text-sm">
-            <SummaryRow label="Subtotal" value={formatPrice(cartTotal)} />
             <SummaryRow
-              label="Delivery"
-              value={deliveryType ? formatPrice(fromBaisa(shippingBaisa)) : "Select method"}
+              label={lang === "ar" ? "المجموع الفرعي" : "Subtotal"}
+              value={formatPrice(cartTotal, lang)}
             />
-            <SummaryRow label="Total" value={formatPrice(total)} total />
+            <SummaryRow
+              label={lang === "ar" ? "التوصيل" : "Delivery"}
+              value={
+                deliveryType
+                  ? formatPrice(fromBaisa(shippingBaisa), lang)
+                  : lang === "ar"
+                    ? "اختاري طريقة التوصيل"
+                    : "Select method"
+              }
+            />
+            <SummaryRow
+              label={lang === "ar" ? "الإجمالي" : "Total"}
+              value={formatPrice(total, lang)}
+              total
+            />
           </div>
           <button
             type="submit"
-            disabled={submitting || !deliveryType || !proof}
+            disabled={submitting || !deliveryType || !proof || cartItemsNeedingOptions.length > 0}
             className="mt-6 w-full rounded-full bg-primary px-6 py-4 text-sm font-semibold uppercase tracking-[0.15em] text-primary-foreground disabled:opacity-50"
           >
             {submitting ? "Placing..." : "Place Order"}
@@ -343,6 +382,7 @@ function DeliveryCard({
   title,
   subtitle,
   price,
+  language,
 }: {
   type: DeliveryType;
   selected: DeliveryType | null;
@@ -351,6 +391,7 @@ function DeliveryCard({
   title: string;
   subtitle: string;
   price: number;
+  language: "en" | "ar";
 }) {
   return (
     <label
@@ -368,12 +409,20 @@ function DeliveryCard({
         <span className="block text-sm font-medium">{title}</span>
         <span className="text-xs text-muted-foreground">{subtitle}</span>
       </span>
-      <span className="font-semibold">{formatPrice(price)}</span>
+      <span className="font-semibold">{formatPrice(price, language)}</span>
     </label>
   );
 }
 
-function BoxSuggestions({ title, products }: { title: string; products: Product[] }) {
+function BoxSuggestions({
+  title,
+  products,
+  language,
+}: {
+  title: string;
+  products: Product[];
+  language: "en" | "ar";
+}) {
   return (
     <Section title={title}>
       <div className="min-w-0 max-w-full overflow-hidden [contain:layout_paint]">
@@ -392,7 +441,7 @@ function BoxSuggestions({ title, products }: { title: string; products: Product[
               />
               <div className="p-3">
                 <p className="truncate text-sm font-medium">{product.brand?.name}</p>
-                <p className="mt-1 text-xs text-primary">{formatPrice(product.price)}</p>
+                <p className="mt-1 text-xs text-primary">{formatPrice(product.price, language)}</p>
               </div>
             </Link>
           ))}

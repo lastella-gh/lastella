@@ -122,13 +122,17 @@ function Dashboard({
                 {orders.map((o) => (
                   <tr key={o.id} className="border-b border-border/60">
                     <td className="py-3 font-medium">{o.order_number}</td>
-                    <td>{new Date(o.created_at).toLocaleDateString()}</td>
+                    <td>
+                      {new Date(o.created_at).toLocaleDateString(
+                        lang === "ar" ? "ar-OM-u-nu-arab" : "en-US",
+                      )}
+                    </td>
                     <td>
                       <span className="capitalize inline-block rounded-full bg-primary/10 text-primary px-3 py-1 text-xs">
                         {o.status.replaceAll("_", " ")}
                       </span>
                     </td>
-                    <td className="text-end font-semibold">{formatPrice(Number(o.total))}</td>
+                    <td className="text-end font-semibold">{formatPrice(Number(o.total), lang)}</td>
                   </tr>
                 ))}
               </tbody>

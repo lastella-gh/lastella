@@ -4,8 +4,6 @@ import cn from "@/assets/cat-necklace.jpg";
 import cb from "@/assets/cat-bracelet.jpg";
 import cr from "@/assets/cat-ring.jpg";
 import ce from "@/assets/cat-earrings.jpg";
-import cp from "@/assets/cat-pendant.jpg";
-import cw from "@/assets/cat-watch.jpg";
 
 export function Categories() {
   const { t } = useI18n();
@@ -16,8 +14,6 @@ export function Categories() {
     { key: "cat.anklet", category: "anklet", img: cb },
     { key: "cat.ring", category: "ring", img: cr },
     { key: "cat.earrings", category: "earrings", img: ce },
-    { key: "cat.pendant", category: "pendant", img: cp },
-    { key: "cat.watch", category: "watch", img: cw },
   ] as const;
   return (
     <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20">

@@ -24,6 +24,32 @@ function translationChunks(source: string) {
   return chunks;
 }
 
+export async function translateToArabic(sourceText: string, signal?: AbortSignal) {
+  const translatedChunks: string[] = [];
+  for (const chunk of translationChunks(sourceText.trim())) {
+    if (!chunk.trim()) {
+      translatedChunks.push(chunk);
+      continue;
+    }
+    const params = new URLSearchParams({ q: chunk.trim(), langpair: "en|ar" });
+    const response = await fetch(`https://api.mymemory.translated.net/get?${params}`, {
+      signal,
+    });
+    if (!response.ok) throw new Error("Translation request failed");
+    const result = (await response.json()) as {
+      responseData?: { translatedText?: string };
+      responseStatus?: number | string;
+    };
+    if (Number(result.responseStatus ?? 200) >= 400) {
+      throw new Error("Translation request failed");
+    }
+    const translated = result.responseData?.translatedText?.trim();
+    if (!translated) throw new Error("Translation was empty");
+    translatedChunks.push(translated + (chunk.match(/\s+$/)?.[0] ?? ""));
+  }
+  return translatedChunks.join("");
+}
+
 export function useArabicTranslation(initialEnglish = "", initialArabic = "") {
   const [english, setEnglish] = useState(initialEnglish);
   const [arabic, setArabic] = useState(initialArabic);
@@ -59,28 +85,7 @@ export function useArabicTranslation(initialEnglish = "", initialArabic = "") {
     setStatus("translating");
 
     try {
-      const translatedChunks: string[] = [];
-      for (const chunk of translationChunks(source)) {
-        if (!chunk.trim()) {
-          translatedChunks.push(chunk);
-          continue;
-        }
-        const params = new URLSearchParams({ q: chunk.trim(), langpair: "en|ar" });
-        const response = await fetch(`https://api.mymemory.translated.net/get?${params}`, {
-          signal: controller.signal,
-        });
-        if (!response.ok) throw new Error("Translation request failed");
-        const result = (await response.json()) as {
-          responseData?: { translatedText?: string };
-          responseStatus?: number | string;
-        };
-        if (Number(result.responseStatus ?? 200) >= 400) {
-          throw new Error("Translation request failed");
-        }
-        const translated = result.responseData?.translatedText?.trim();
-        if (!translated) throw new Error("Translation was empty");
-        translatedChunks.push(translated + (chunk.match(/\s+$/)?.[0] ?? ""));
-      }
+      const translated = await translateToArabic(source, controller.signal);
       if (controller.signal.aborted || abortRef.current !== controller) return;
       if (englishRef.current.trim() !== source || arabicEditedRef.current) {
         setStatus("idle");
@@ -88,7 +93,7 @@ export function useArabicTranslation(initialEnglish = "", initialArabic = "") {
       }
 
       translatedSourceRef.current = source;
-      setArabic(translatedChunks.join(""));
+      setArabic(translated);
       setStatus("idle");
     } catch {
       if (controller.signal.aborted) return;

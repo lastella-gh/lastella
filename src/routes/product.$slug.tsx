@@ -15,10 +15,11 @@ import { useEffect, useState, type MouseEvent } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { ProductCard } from "@/components/ProductCard";
-import { formatNumber, formatNumericLabel, formatPrice } from "@/lib/currency";
+import { formatNumber, formatPrice } from "@/lib/currency";
 import { useI18n } from "@/lib/i18n";
 import { getLocalizedProductName, getPublicProductBySlug, useProducts } from "@/lib/products";
 import { useStore } from "@/lib/store";
+import { getVariantOptionLabel } from "@/lib/variant-labels";
 
 export const Route = createFileRoute("/product/$slug")({
   validateSearch: z.object({ cartItemId: z.string().optional() }),
@@ -282,8 +283,14 @@ function ProductPage() {
                 onSelect={setSelectedSize}
                 language={lang}
                 arabicLabel={(option) =>
-                  product.variants.find((variant) => variant.size === option)?.size_ar ||
-                  formatNumericLabel(option, lang)
+                  getVariantOptionLabel(
+                    option,
+                    lang,
+                    "size",
+                    product.variants.find(
+                      (variant) => variant.size === option && variant.size_ar?.trim(),
+                    )?.size_ar,
+                  )
                 }
               />
             )}
@@ -295,7 +302,14 @@ function ProductPage() {
                 onSelect={setSelectedColor}
                 language={lang}
                 arabicLabel={(option) =>
-                  product.variants.find((variant) => variant.color === option)?.color_ar || option
+                  getVariantOptionLabel(
+                    option,
+                    lang,
+                    "color",
+                    product.variants.find(
+                      (variant) => variant.color === option && variant.color_ar?.trim(),
+                    )?.color_ar,
+                  )
                 }
               />
             )}

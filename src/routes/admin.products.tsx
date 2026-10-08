@@ -5,7 +5,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Enums, Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { formatPrice } from "@/lib/currency";
-import { useArabicTranslation } from "@/hooks/use-arabic-translation";
+import { translateToArabic, useArabicTranslation } from "@/hooks/use-arabic-translation";
+import { getKnownArabicVariantLabel, type VariantOptionKind } from "@/lib/variant-labels";
 
 export const Route = createFileRoute("/admin/products")({
   component: AdminProducts,
@@ -320,6 +321,7 @@ function ProductForm({
   const [available, setAvailable] = useState(initial?.available ?? true);
   const [visible, setVisible] = useState(initial?.visible ?? true);
   const [variants, setVariants] = useState<VariantDraft[]>(initial?.variants ?? []);
+  const variantTranslations = useRef(new Map<string, Promise<string>>());
   const [mainFile, setMainFile] = useState<File | null>(null);
   const [mainPreview, setMainPreview] = useState(initial?.image ?? "");
   const [galleryUrls, setGalleryUrls] = useState(initial?.images ?? []);
@@ -379,10 +381,57 @@ function ProductForm({
 
   function updateVariant(index: number, patch: Partial<VariantDraft>) {
     setVariants((current) =>
-      current.map((variant, variantIndex) =>
-        variantIndex === index ? { ...variant, ...patch } : variant,
-      ),
+      current.map((variant, variantIndex) => {
+        if (variantIndex !== index) return variant;
+        return {
+          ...variant,
+          ...patch,
+          ...(patch.size !== undefined && patch.size !== variant.size && patch.size_ar === undefined
+            ? { size_ar: "" }
+            : {}),
+          ...(patch.color !== undefined &&
+          patch.color !== variant.color &&
+          patch.color_ar === undefined
+            ? { color_ar: "" }
+            : {}),
+        };
+      }),
     );
+  }
+
+  function resolveVariantArabic(kind: VariantOptionKind, value: string) {
+    const known = getKnownArabicVariantLabel(kind, value);
+    if (known) return Promise.resolve(known);
+    const key = `${kind}:${value.trim().toLowerCase()}`;
+    const existing = variantTranslations.current.get(key);
+    if (existing) return existing;
+    const request = translateToArabic(value).catch((error: unknown) => {
+      variantTranslations.current.delete(key);
+      throw error;
+    });
+    variantTranslations.current.set(key, request);
+    return request;
+  }
+
+  function translateVariantOption(index: number, kind: VariantOptionKind) {
+    const variant = variants[index];
+    if (!variant) return;
+    const key = kind;
+    const arabicKey = kind === "color" ? "color_ar" : "size_ar";
+    const source = variant[key]?.trim();
+    if (!source || variant[arabicKey]?.trim()) return;
+
+    void resolveVariantArabic(kind, source)
+      .then((label) => {
+        setVariants((current) =>
+          current.map((item, itemIndex) =>
+            itemIndex === index && item[key]?.trim() === source && !item[arabicKey]?.trim()
+              ? { ...item, [arabicKey]: label }
+              : item,
+          ),
+        );
+      })
+      .catch(() => undefined);
   }
 
   async function save(event: React.FormEvent<HTMLFormElement>) {
@@ -392,16 +441,27 @@ function ProductForm({
       return;
     }
 
-    const cleanedVariants = variants.map((variant) => ({
-      ...variant,
-      size: variant.size?.trim() || null,
-      color: variant.color?.trim() || null,
-      size_ar: variant.size_ar?.trim() || null,
-      color_ar: variant.color_ar?.trim() || null,
-    }));
+    const form = new FormData(event.currentTarget);
+    setSaving(true);
+    setSaveStatus("Translating variant options...");
+    const cleanedVariants = await Promise.all(
+      variants.map(async (variant) => {
+        const size = variant.size?.trim() || null;
+        const color = variant.color?.trim() || null;
+        const [size_ar, color_ar] = await Promise.all([
+          size ? variant.size_ar?.trim() || resolveVariantArabic("size", size).catch(() => "") : "",
+          color
+            ? variant.color_ar?.trim() || resolveVariantArabic("color", color).catch(() => "")
+            : "",
+        ]);
+        return { ...variant, size, color, size_ar: size_ar || null, color_ar: color_ar || null };
+      }),
+    );
     if (kind === "jewelry") {
       if (cleanedVariants.some((variant) => !variant.size && !variant.color)) {
         toast.error("Each variant needs a size, a color, or both");
+        setSaving(false);
+        setSaveStatus("");
         return;
       }
       if (
@@ -412,6 +472,8 @@ function ProductForm({
         )
       ) {
         toast.error("Add Arabic labels for every text color and size option");
+        setSaving(false);
+        setSaveStatus("");
         return;
       }
       const labelsAreConsistent = (key: "color" | "size", arabicKey: "color_ar" | "size_ar") => {
@@ -428,20 +490,22 @@ function ProductForm({
       };
       if (!labelsAreConsistent("color", "color_ar") || !labelsAreConsistent("size", "size_ar")) {
         toast.error("Use the same Arabic label for matching variant options");
+        setSaving(false);
+        setSaveStatus("");
         return;
       }
       const optionKeys = cleanedVariants.map(variantKey);
       if (new Set(optionKeys).size !== optionKeys.length) {
         toast.error("Variant size and color combinations must be unique");
+        setSaving(false);
+        setSaveStatus("");
         return;
       }
     }
 
-    const form = new FormData(event.currentTarget);
     const uploadedPaths: string[] = [];
     let productPersisted = false;
     let createdProductId: string | null = null;
-    setSaving(true);
     setSaveStatus("Saving...");
     setSaveError(null);
 
@@ -851,6 +915,7 @@ function ProductForm({
                       <input
                         value={variant.size ?? ""}
                         onChange={(event) => updateVariant(index, { size: event.target.value })}
+                        onBlur={() => translateVariantOption(index, "size")}
                         placeholder="Size (optional)"
                         aria-label={`Variant ${index + 1} size`}
                         className={inputClass}
@@ -858,6 +923,7 @@ function ProductForm({
                       <input
                         value={variant.color ?? ""}
                         onChange={(event) => updateVariant(index, { color: event.target.value })}
+                        onBlur={() => translateVariantOption(index, "color")}
                         placeholder="Color (optional)"
                         aria-label={`Variant ${index + 1} color`}
                         className={inputClass}

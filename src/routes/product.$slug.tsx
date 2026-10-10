@@ -1,5 +1,7 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import {
+  ChevronLeft,
+  ChevronRight,
   Heart,
   Minus,
   Plus,
@@ -10,8 +12,9 @@ import {
   Star,
   Truck,
   X,
+  ZoomIn,
 } from "lucide-react";
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type TouchEvent } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { ProductCard } from "@/components/ProductCard";
@@ -20,6 +23,12 @@ import { useI18n } from "@/lib/i18n";
 import { getLocalizedProductName, getPublicProductBySlug, useProducts } from "@/lib/products";
 import { useStore } from "@/lib/store";
 import { getVariantOptionLabel } from "@/lib/variant-labels";
+
+type Point = { x: number; y: number };
+type ImageGesture =
+  | { type: "pinch"; distance: number; scale: number; focalPoint: Point }
+  | { type: "drag"; start: Point; pan: Point }
+  | { type: "swipe"; start: Point };
 
 export const Route = createFileRoute("/product/$slug")({
   validateSearch: z.object({ cartItemId: z.string().optional() }),
@@ -82,13 +91,23 @@ function ProductPage() {
   const [imageOpen, setImageOpen] = useState(false);
   const [imageZoomed, setImageZoomed] = useState(false);
   const [zoomPosition, setZoomPosition] = useState({ x: 50, y: 50 });
+  const [viewerScale, setViewerScale] = useState(1);
+  const [viewerPan, setViewerPan] = useState<Point>({ x: 0, y: 0 });
+  const imageViewerRef = useRef<HTMLDivElement>(null);
+  const viewerImageRef = useRef<HTMLImageElement>(null);
+  const imageGestureRef = useRef<ImageGesture | null>(null);
   const { data: jewelry = [] } = useProducts();
 
   useEffect(() => {
     if (!imageOpen) return;
     const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setImageOpen(false);
+      if (event.key === "Escape") {
+        setImageOpen(false);
+        setViewerScale(1);
+        setViewerPan({ x: 0, y: 0 });
+        imageGestureRef.current = null;
+      }
     };
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", closeOnEscape);
@@ -132,6 +151,136 @@ function ProductPage() {
     .filter((candidate) => candidate.category === product.category && candidate.id !== product.id)
     .slice(0, 4);
   const gallery = [...new Set([product.image, ...product.images])];
+  const activeImageIndex = Math.max(0, gallery.indexOf(activeImage));
+
+  function resetViewerZoom() {
+    setViewerScale(1);
+    setViewerPan({ x: 0, y: 0 });
+    imageGestureRef.current = null;
+  }
+
+  function openImageViewer() {
+    resetViewerZoom();
+    setImageOpen(true);
+  }
+
+  function closeImageViewer() {
+    setImageOpen(false);
+    resetViewerZoom();
+  }
+
+  function selectGalleryImage(index: number) {
+    if (gallery.length === 0) return;
+    const wrappedIndex = (index + gallery.length) % gallery.length;
+    setActiveImage(gallery[wrappedIndex]);
+    resetViewerZoom();
+  }
+
+  function shiftGallery(offset: number) {
+    selectGalleryImage(activeImageIndex + offset);
+  }
+
+  function clampViewerPan(x: number, y: number, scale: number) {
+    if (scale <= 1 || !imageViewerRef.current) return { x: 0, y: 0 };
+    const width = viewerImageRef.current?.clientWidth || imageViewerRef.current.clientWidth;
+    const height = viewerImageRef.current?.clientHeight || imageViewerRef.current.clientHeight;
+    const maxX = (width * (scale - 1)) / 2;
+    const maxY = (height * (scale - 1)) / 2;
+    return {
+      x: Math.min(maxX, Math.max(-maxX, x)),
+      y: Math.min(maxY, Math.max(-maxY, y)),
+    };
+  }
+
+  function handleViewerTouchStart(event: TouchEvent<HTMLDivElement>) {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    if (event.touches.length >= 2) {
+      const first = event.touches[0];
+      const second = event.touches[1];
+      const midpointX = (first.clientX + second.clientX) / 2 - bounds.left - bounds.width / 2;
+      const midpointY = (first.clientY + second.clientY) / 2 - bounds.top - bounds.height / 2;
+      imageGestureRef.current = {
+        type: "pinch",
+        distance: Math.hypot(first.clientX - second.clientX, first.clientY - second.clientY),
+        scale: viewerScale,
+        focalPoint: {
+          x: (midpointX - viewerPan.x) / viewerScale,
+          y: (midpointY - viewerPan.y) / viewerScale,
+        },
+      };
+      return;
+    }
+
+    const touch = event.touches[0];
+    if (!touch) return;
+    const start = { x: touch.clientX, y: touch.clientY };
+    imageGestureRef.current =
+      viewerScale > 1.01 ? { type: "drag", start, pan: viewerPan } : { type: "swipe", start };
+  }
+
+  function handleViewerTouchMove(event: TouchEvent<HTMLDivElement>) {
+    const gesture = imageGestureRef.current;
+    if (!gesture) return;
+
+    if (event.touches.length >= 2 && gesture.type === "pinch") {
+      event.preventDefault();
+      const first = event.touches[0];
+      const second = event.touches[1];
+      const distance = Math.hypot(first.clientX - second.clientX, first.clientY - second.clientY);
+      const scale = Math.min(4, Math.max(1, gesture.scale * (distance / gesture.distance)));
+      const bounds = event.currentTarget.getBoundingClientRect();
+      const midpointX = (first.clientX + second.clientX) / 2 - bounds.left - bounds.width / 2;
+      const midpointY = (first.clientY + second.clientY) / 2 - bounds.top - bounds.height / 2;
+      setViewerScale(scale);
+      setViewerPan(
+        clampViewerPan(
+          midpointX - gesture.focalPoint.x * scale,
+          midpointY - gesture.focalPoint.y * scale,
+          scale,
+        ),
+      );
+      return;
+    }
+
+    if (event.touches.length === 1 && gesture.type === "drag") {
+      event.preventDefault();
+      const touch = event.touches[0];
+      setViewerPan(
+        clampViewerPan(
+          gesture.pan.x + touch.clientX - gesture.start.x,
+          gesture.pan.y + touch.clientY - gesture.start.y,
+          viewerScale,
+        ),
+      );
+    }
+  }
+
+  function handleViewerTouchEnd(event: TouchEvent<HTMLDivElement>) {
+    if (event.touches.length === 1) {
+      const touch = event.touches[0];
+      const start = { x: touch.clientX, y: touch.clientY };
+      imageGestureRef.current =
+        viewerScale > 1.01 ? { type: "drag", start, pan: viewerPan } : { type: "swipe", start };
+      return;
+    }
+
+    const gesture = imageGestureRef.current;
+    if (event.touches.length === 0 && gesture?.type === "swipe") {
+      const touch = event.changedTouches[0];
+      const deltaX = touch ? touch.clientX - gesture.start.x : 0;
+      if (Math.abs(deltaX) > 48) shiftGallery(deltaX < 0 ? 1 : -1);
+    }
+    imageGestureRef.current = null;
+  }
+
+  function toggleViewerZoom() {
+    if (viewerScale > 1.01) {
+      resetViewerZoom();
+      return;
+    }
+    setViewerScale(2.25);
+    setViewerPan({ x: 0, y: 0 });
+  }
 
   function addCurrentProduct() {
     if (!purchasable) {
@@ -196,11 +345,14 @@ function ProductPage() {
         <div className="space-y-4">
           <button
             type="button"
-            onClick={() => setImageOpen(true)}
-            className="aspect-square w-full cursor-zoom-in overflow-hidden rounded-3xl bg-secondary lg:hidden"
+            onClick={openImageViewer}
+            className="relative aspect-square w-full cursor-zoom-in overflow-hidden rounded-3xl bg-secondary lg:hidden"
             aria-label={lang === "ar" ? "تكبير صورة المنتج" : "Enlarge product image"}
           >
             <img src={activeImage} alt={productName} className="h-full w-full object-cover" />
+            <span className="absolute start-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-background/85 text-foreground shadow-sm backdrop-blur">
+              <ZoomIn className="h-5 w-5" />
+            </span>
           </button>
           <div
             onMouseEnter={() => setImageZoomed(true)}
@@ -220,18 +372,41 @@ function ProductPage() {
             />
           </div>
           {gallery.length > 1 && (
-            <div className="grid grid-cols-5 gap-3">
-              {gallery.map((image) => (
+            <>
+              <div className="flex items-center justify-center gap-6 lg:hidden" dir="ltr">
                 <button
-                  key={image}
                   type="button"
-                  onClick={() => setActiveImage(image)}
-                  className={`aspect-square overflow-hidden rounded-xl ring-2 ${activeImage === image ? "ring-primary" : "ring-transparent hover:ring-primary/50"}`}
+                  onClick={() => shiftGallery(-1)}
+                  className="grid h-10 w-10 place-items-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  aria-label={lang === "ar" ? "الصورة السابقة" : "Previous image"}
                 >
-                  <img src={image} alt="" className="h-full w-full object-cover" />
+                  <ChevronLeft className="h-5 w-5" />
                 </button>
-              ))}
-            </div>
+                <span className="min-w-12 text-center text-sm text-muted-foreground">
+                  {formatNumber(activeImageIndex + 1, lang)} / {formatNumber(gallery.length, lang)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => shiftGallery(1)}
+                  className="grid h-10 w-10 place-items-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  aria-label={lang === "ar" ? "الصورة التالية" : "Next image"}
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="hidden grid-cols-5 gap-3 lg:grid">
+                {gallery.map((image, index) => (
+                  <button
+                    key={image}
+                    type="button"
+                    onClick={() => selectGalleryImage(index)}
+                    className={`aspect-square overflow-hidden rounded-xl ring-2 ${activeImage === image ? "ring-primary" : "ring-transparent hover:ring-primary/50"}`}
+                  >
+                    <img src={image} alt="" className="h-full w-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            </>
           )}
         </div>
 
@@ -410,23 +585,44 @@ function ProductPage() {
           role="dialog"
           aria-modal="true"
           aria-label={lang === "ar" ? "صورة المنتج المكبرة" : "Enlarged product image"}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-3 sm:p-6 lg:hidden"
-          onClick={() => setImageOpen(false)}
+          className="fixed inset-0 z-[100] bg-black/95 lg:hidden"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) closeImageViewer();
+          }}
         >
           <button
             type="button"
-            onClick={() => setImageOpen(false)}
-            className="absolute end-4 top-4 grid h-11 w-11 place-items-center rounded-full bg-white/15 text-white backdrop-blur transition hover:bg-white/25"
+            onClick={closeImageViewer}
+            className="absolute right-4 top-4 z-[110] grid h-11 w-11 place-items-center rounded-full bg-black/40 text-white backdrop-blur transition hover:bg-black/60"
             aria-label={lang === "ar" ? "إغلاق الصورة" : "Close image"}
           >
             <X className="h-6 w-6" />
           </button>
-          <img
-            src={activeImage}
-            alt={productName}
-            className="max-h-full max-w-full object-contain"
-            onClick={(event) => event.stopPropagation()}
-          />
+          <div
+            ref={imageViewerRef}
+            className="absolute inset-0 z-0 flex items-center justify-center overflow-hidden p-3 sm:p-6"
+            style={{ touchAction: "none" }}
+            onTouchStart={handleViewerTouchStart}
+            onTouchMove={handleViewerTouchMove}
+            onTouchEnd={handleViewerTouchEnd}
+            onTouchCancel={() => {
+              imageGestureRef.current = null;
+            }}
+          >
+            <img
+              ref={viewerImageRef}
+              src={activeImage}
+              alt={productName}
+              draggable={false}
+              className="max-h-full max-w-full select-none object-contain will-change-transform"
+              style={{
+                transform: `translate3d(${viewerPan.x}px, ${viewerPan.y}px, 0) scale(${viewerScale})`,
+                transformOrigin: "center center",
+              }}
+              onClick={(event) => event.stopPropagation()}
+              onDoubleClick={toggleViewerZoom}
+            />
+          </div>
         </div>
       )}
     </div>

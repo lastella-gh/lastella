@@ -1,3 +1,4 @@
+import { AdminFormDialog } from "@/components/admin/AdminFormDialog";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { ImagePlus, Pencil, Plus, Search, Trash2, X } from "lucide-react";
@@ -127,9 +128,31 @@ function AdminProducts() {
       product.category?.includes(query),
   );
 
+  function renderActions(product: Product) {
+    return (
+      <div className="flex items-center justify-end gap-2">
+        <button
+          onClick={() => setEditing(product)}
+          className="grid h-11 w-11 place-items-center rounded-lg hover:bg-secondary"
+          aria-label={`Edit ${product.name_en}`}
+        >
+          <Pencil className="h-4 w-4" />
+        </button>
+        <button
+          onClick={() => void remove(product)}
+          disabled={deletingId === product.id}
+          className="grid h-11 w-11 place-items-center rounded-lg text-destructive hover:bg-destructive/10 disabled:opacity-50"
+          aria-label={`Delete ${product.name_en}`}
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h2 className="font-display text-3xl">Products</h2>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -139,21 +162,21 @@ function AdminProducts() {
         <button
           onClick={() => setCreating(true)}
           disabled={brands.length === 0}
-          className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold uppercase tracking-wider text-primary-foreground transition-all hover:bg-rose-deep disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold uppercase tracking-wider text-primary-foreground transition-all hover:bg-rose-deep sm:w-auto disabled:cursor-not-allowed disabled:opacity-50"
           title={brands.length === 0 ? "Create a brand first" : undefined}
         >
           <Plus className="h-4 w-4" /> New Product
         </button>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="relative max-w-md flex-1">
+      <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <div className="relative w-full min-w-0 sm:max-w-md sm:flex-1">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search name, slug, brand, kind, or category..."
-            className="w-full rounded-full border border-border bg-background/50 py-2.5 pl-10 pr-9 text-sm backdrop-blur transition-all focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full rounded-full border border-border bg-background/50 py-2.5 pl-10 pr-9 text-base sm:text-sm backdrop-blur transition-all focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           />
           {search && (
             <button
@@ -175,108 +198,163 @@ function AdminProducts() {
       <div className="glass overflow-hidden rounded-2xl">
         {loading ? (
           <div className="p-10 text-center text-muted-foreground">Loading...</div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="p-6 text-center text-sm text-muted-foreground">
+            {search ? `No products matching "${search}"` : "No products yet."}
+          </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
-                <tr>
-                  <th className="p-4 text-start">Product</th>
-                  <th className="p-4 text-start">Brand</th>
-                  <th className="p-4 text-start">Type</th>
-                  <th className="p-4 text-start">Price</th>
-                  <th className="p-4 text-start">Available</th>
-                  <th className="p-4 text-start">Visible</th>
-                  <th className="p-4 text-end">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredProducts.map((product) => (
-                  <tr
-                    key={product.id}
-                    className="border-b border-border/60 transition-colors hover:bg-secondary/30"
-                  >
-                    <td className="p-4">
-                      <div className="flex min-w-56 items-center gap-3">
-                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-border/40 bg-secondary">
-                          <img src={product.image} alt="" className="h-full w-full object-cover" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="truncate font-medium">{product.name_en}</p>
-                          {product.name_ar && (
-                            <p className="truncate text-xs text-muted-foreground" dir="rtl">
-                              {product.name_ar}
-                            </p>
-                          )}
-                          <p className="truncate font-mono text-[11px] text-muted-foreground/70">
-                            {product.slug}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-4">{product.brand?.name ?? "Unknown"}</td>
-                    <td className="p-4 capitalize">
-                      <p>{product.kind.replace("_", " ")}</p>
-                      {product.category && (
-                        <p className="text-xs text-muted-foreground">{product.category}</p>
-                      )}
-                    </td>
-                    <td className="p-4">
-                      <p className="font-medium">{formatPrice(Number(product.price))}</p>
-                      {product.old_price != null && (
-                        <p className="text-xs text-muted-foreground line-through">
-                          {formatPrice(Number(product.old_price))}
+          <>
+            <ul className="grid gap-3 p-3 sm:grid-cols-2 xl:hidden" aria-label="Products">
+              {filteredProducts.map((product) => (
+                <li
+                  key={product.id}
+                  className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4"
+                >
+                  <div className="flex min-w-0 items-start gap-3">
+                    <img
+                      src={product.image}
+                      alt=""
+                      className="h-14 w-14 shrink-0 rounded-lg border border-border/40 object-cover"
+                    />
+                    <div className="min-w-0">
+                      <p className="break-words font-medium">{product.name_en}</p>
+                      {product.name_ar && (
+                        <p dir="rtl" className="mt-1 break-words text-xs text-muted-foreground">
+                          {product.name_ar}
                         </p>
                       )}
-                    </td>
-                    <td className="p-4">
-                      <StatusToggle
-                        checked={product.available}
-                        disabled={toggling === `${product.id}:available`}
-                        onClick={() => void toggle(product, "available")}
-                        onLabel="Available"
-                        offLabel="Unavailable"
-                      />
-                    </td>
-                    <td className="p-4">
-                      <StatusToggle
-                        checked={product.visible}
-                        disabled={toggling === `${product.id}:visible`}
-                        onClick={() => void toggle(product, "visible")}
-                        onLabel="Visible"
-                        offLabel="Hidden"
-                      />
-                    </td>
-                    <td className="p-4">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => setEditing(product)}
-                          className="rounded-lg p-2 hover:bg-secondary"
-                          aria-label={`Edit ${product.name_en}`}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => void remove(product)}
-                          disabled={deletingId === product.id}
-                          className="rounded-lg p-2 text-destructive hover:bg-destructive/10 disabled:opacity-50"
-                          aria-label={`Delete ${product.name_en}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {filteredProducts.length === 0 && (
+                      <p className="mt-1 break-all font-mono text-[11px] text-muted-foreground">
+                        {product.slug}
+                      </p>
+                    </div>
+                  </div>
+                  <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                    <div className="min-w-0">
+                      <dt className="text-xs text-muted-foreground">Brand</dt>
+                      <dd className="mt-1 break-words">{product.brand?.name ?? "Unknown"}</dd>
+                    </div>
+                    <div className="min-w-0">
+                      <dt className="text-xs text-muted-foreground">Type</dt>
+                      <dd className="mt-1 capitalize">
+                        {product.kind.replace("_", " ")}
+                        {product.category ? ` · ${product.category}` : ""}
+                      </dd>
+                    </div>
+                    <div className="col-span-2">
+                      <dt className="text-xs text-muted-foreground">Price</dt>
+                      <dd className="mt-1 flex flex-wrap items-baseline gap-2 font-medium">
+                        {formatPrice(Number(product.price))}
+                        {product.old_price != null && (
+                          <span className="text-xs text-muted-foreground line-through">
+                            {formatPrice(Number(product.old_price))}
+                          </span>
+                        )}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <StatusToggle
+                      checked={product.available}
+                      disabled={toggling === `${product.id}:available`}
+                      onClick={() => void toggle(product, "available")}
+                      onLabel="Available"
+                      offLabel="Unavailable"
+                    />
+                    <StatusToggle
+                      checked={product.visible}
+                      disabled={toggling === `${product.id}:visible`}
+                      onClick={() => void toggle(product, "visible")}
+                      onLabel="Visible"
+                      offLabel="Hidden"
+                    />
+                  </div>
+                  <div className="mt-3 border-t border-border/60 pt-2">
+                    {renderActions(product)}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <div className="hidden overflow-x-auto xl:block">
+              <table className="w-full min-w-[800px] text-sm">
+                <thead className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
                   <tr>
-                    <td colSpan={7} className="p-10 text-center text-muted-foreground">
-                      {search ? `No products matching "${search}"` : "No products yet."}
-                    </td>
+                    <th className="p-4 text-start">Product</th>
+                    <th className="p-4 text-start">Brand</th>
+                    <th className="p-4 text-start">Type</th>
+                    <th className="p-4 text-start">Price</th>
+                    <th className="p-4 text-start">Available</th>
+                    <th className="p-4 text-start">Visible</th>
+                    <th className="p-4 text-end">Actions</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {filteredProducts.map((product) => (
+                    <tr
+                      key={product.id}
+                      className="border-b border-border/60 transition-colors hover:bg-secondary/30"
+                    >
+                      <td className="p-4">
+                        <div className="flex min-w-56 items-center gap-3">
+                          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-border/40 bg-secondary">
+                            <img
+                              src={product.image}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">{product.name_en}</p>
+                            {product.name_ar && (
+                              <p className="truncate text-xs text-muted-foreground" dir="rtl">
+                                {product.name_ar}
+                              </p>
+                            )}
+                            <p className="truncate font-mono text-[11px] text-muted-foreground/70">
+                              {product.slug}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-4">{product.brand?.name ?? "Unknown"}</td>
+                      <td className="p-4 capitalize">
+                        <p>{product.kind.replace("_", " ")}</p>
+                        {product.category && (
+                          <p className="text-xs text-muted-foreground">{product.category}</p>
+                        )}
+                      </td>
+                      <td className="p-4">
+                        <p className="font-medium">{formatPrice(Number(product.price))}</p>
+                        {product.old_price != null && (
+                          <p className="text-xs text-muted-foreground line-through">
+                            {formatPrice(Number(product.old_price))}
+                          </p>
+                        )}
+                      </td>
+                      <td className="p-4">
+                        <StatusToggle
+                          checked={product.available}
+                          disabled={toggling === `${product.id}:available`}
+                          onClick={() => void toggle(product, "available")}
+                          onLabel="Available"
+                          offLabel="Unavailable"
+                        />
+                      </td>
+                      <td className="p-4">
+                        <StatusToggle
+                          checked={product.visible}
+                          disabled={toggling === `${product.id}:visible`}
+                          onClick={() => void toggle(product, "visible")}
+                          onLabel="Visible"
+                          offLabel="Hidden"
+                        />
+                      </td>
+                      <td className="p-4">{renderActions(product)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
@@ -623,409 +701,399 @@ function ProductForm({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm">
-      <form
-        onSubmit={save}
-        className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-border/60 bg-background shadow-2xl"
-      >
-        <div className="flex items-center justify-between border-b border-border/50 p-6">
-          <div>
-            <h3 className="font-display text-2xl">{initial ? "Edit Product" : "New Product"}</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Product details, merchandising, and purchasable options
-            </p>
-          </div>
+    <AdminFormDialog
+      title={initial ? "Edit Product" : "New Product"}
+      description="Product details, merchandising, and purchasable options"
+      onSubmit={save}
+      onClose={onClose}
+      className="sm:max-w-4xl"
+      footer={
+        <>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-2 hover:bg-secondary/80"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5 text-muted-foreground" />
-          </button>
-        </div>
-
-        <div className="overflow-y-auto p-6">
-          {saveError && (
-            <div
-              role="alert"
-              className="mb-5 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-            >
-              {saveError}
-            </div>
-          )}
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Field label="Name (EN)">
-              <input
-                value={nameTranslation.english}
-                onChange={(event) => updateName(event.target.value)}
-                onBlur={() => void nameTranslation.translate()}
-                required
-                autoFocus
-                className={inputClass}
-              />
-            </Field>
-            <Field label="Name (AR)">
-              <input
-                name="name_ar"
-                value={nameTranslation.arabic}
-                onChange={(event) => nameTranslation.updateArabic(event.target.value)}
-                dir="rtl"
-                aria-busy={nameTranslation.status === "translating"}
-                className={inputClass}
-              />
-              {nameTranslation.status !== "idle" && (
-                <p className="mt-1.5 text-xs text-muted-foreground" role="status">
-                  {nameTranslation.status === "translating"
-                    ? "Translating product name..."
-                    : "Automatic translation failed. Enter the Arabic name manually or blur the English name to retry."}
-                </p>
-              )}
-            </Field>
-            <Field label="Slug">
-              <input
-                value={slug}
-                onChange={(event) => {
-                  setSlugEdited(true);
-                  setSlug(toSlug(event.target.value));
-                }}
-                required
-                pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
-                className={inputClass}
-              />
-            </Field>
-            <Field label="Brand">
-              <select
-                name="brand_id"
-                defaultValue={initial?.brand_id ?? brands[0]?.id}
-                required
-                className={inputClass}
-              >
-                {brands.map((brand) => (
-                  <option key={brand.id} value={brand.id}>
-                    {brand.name}
-                    {brand.visible ? "" : " (hidden)"}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Kind">
-              <select
-                value={kind}
-                onChange={(event) => setKind(event.target.value as ProductKind)}
-                className={inputClass}
-              >
-                {KINDS.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            {kind === "jewelry" && (
-              <Field label="Category">
-                <select
-                  name="category"
-                  defaultValue={initial?.category ?? "necklace"}
-                  required
-                  className={inputClass}
-                >
-                  {CATEGORIES.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            )}
-            <Field label="Price (OMR)">
-              <input
-                name="price"
-                type="number"
-                min="0.001"
-                step="0.001"
-                defaultValue={Number(initial?.price ?? 1.1).toFixed(3)}
-                required
-                className={inputClass}
-              />
-            </Field>
-            <Field label="Old price (OMR)">
-              <input
-                name="old_price"
-                type="number"
-                min="0.001"
-                step="0.001"
-                defaultValue={
-                  initial?.old_price == null ? "" : Number(initial.old_price).toFixed(3)
-                }
-                placeholder="Optional"
-                className={inputClass}
-              />
-            </Field>
-            <Field label="Badge">
-              <input
-                name="badge"
-                defaultValue={initial?.badge ?? ""}
-                placeholder="Optional, e.g. new or sale"
-                className={inputClass}
-              />
-            </Field>
-            <Field label="Display color">
-              <input
-                name="display_color"
-                defaultValue={initial?.display_color ?? ""}
-                placeholder="Optional, e.g. Rose Gold"
-                className={inputClass}
-              />
-            </Field>
-            <div className="sm:col-span-2 grid gap-5 sm:grid-cols-2">
-              <Field label="Description (EN)">
-                <textarea
-                  name="description_en"
-                  value={descriptionTranslation.english}
-                  onChange={(event) => descriptionTranslation.updateEnglish(event.target.value)}
-                  onBlur={() => void descriptionTranslation.translate()}
-                  rows={3}
-                  className={inputClass}
-                />
-              </Field>
-              <Field label="Description (AR)">
-                <textarea
-                  name="description_ar"
-                  value={descriptionTranslation.arabic}
-                  onChange={(event) => descriptionTranslation.updateArabic(event.target.value)}
-                  rows={3}
-                  dir="rtl"
-                  aria-busy={descriptionTranslation.status === "translating"}
-                  className={inputClass}
-                />
-                {descriptionTranslation.status !== "idle" && (
-                  <p className="mt-1.5 text-xs text-muted-foreground" role="status">
-                    {descriptionTranslation.status === "translating"
-                      ? "Translating product description..."
-                      : "Automatic translation failed. Enter the Arabic description manually or blur the English description to retry."}
-                  </p>
-                )}
-              </Field>
-            </div>
-
-            <div className="sm:col-span-2 grid gap-5 lg:grid-cols-[1fr_2fr]">
-              <Field label="Main image">
-                <label className="group flex h-44 cursor-pointer items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-primary/20 bg-secondary/10 transition-colors hover:bg-secondary/30">
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    onChange={(event) => {
-                      const file = event.currentTarget.files?.[0];
-                      event.currentTarget.value = "";
-                      chooseMainImage(file);
-                    }}
-                    className="hidden"
-                  />
-                  {mainPreview ? (
-                    <img src={mainPreview} alt="Preview" className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="flex flex-col items-center gap-2 text-sm text-muted-foreground">
-                      <ImagePlus className="h-7 w-7 text-primary" /> Upload main image
-                    </span>
-                  )}
-                </label>
-              </Field>
-              <Field label="Gallery images">
-                <div className="flex min-h-44 flex-wrap content-start gap-3 rounded-2xl border border-border/60 bg-secondary/10 p-3">
-                  {galleryUrls.map((url) => (
-                    <ImageThumbnail
-                      key={url}
-                      src={url}
-                      onRemove={() => {
-                        markRemovedPath(url);
-                        setGalleryUrls((current) => current.filter((item) => item !== url));
-                      }}
-                    />
-                  ))}
-                  {galleryFiles.map((file, index) => (
-                    <ImageThumbnail
-                      key={fileIdentity(file)}
-                      src={galleryPreviews[index]}
-                      onRemove={() => {
-                        revokeBlobUrl(galleryPreviewsRef.current[index]);
-                        galleryPreviewsRef.current = galleryPreviewsRef.current.filter(
-                          (_, itemIndex) => itemIndex !== index,
-                        );
-                        setGalleryPreviews(galleryPreviewsRef.current);
-                        setGalleryFiles((current) =>
-                          current.filter((_, itemIndex) => itemIndex !== index),
-                        );
-                      }}
-                    />
-                  ))}
-                  <label className="flex h-24 w-24 cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-primary/20 text-muted-foreground transition-colors hover:bg-secondary">
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/png,image/jpeg,image/webp"
-                      onChange={(event) => {
-                        const files = Array.from(event.currentTarget.files ?? []);
-                        event.currentTarget.value = "";
-                        addGallery(files);
-                      }}
-                      className="hidden"
-                    />
-                    <Plus className="h-6 w-6" />
-                  </label>
-                </div>
-              </Field>
-            </div>
-
-            {kind === "jewelry" && (
-              <div className="sm:col-span-2 rounded-2xl border border-border/60 bg-secondary/10 p-4">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <div>
-                    <h4 className="font-medium">Variants</h4>
-                    <p className="text-xs text-muted-foreground">
-                      Add each purchasable size and color combination.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setVariants((current) => [
-                        ...current,
-                        {
-                          id: crypto.randomUUID(),
-                          size: "",
-                          color: "",
-                          size_ar: "",
-                          color_ar: "",
-                          available: true,
-                        },
-                      ])
-                    }
-                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium hover:bg-secondary"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> Add variant
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {variants.map((variant, index) => (
-                    <div
-                      key={variant.id}
-                      className="grid items-center gap-2 rounded-xl border border-border/50 bg-background p-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_auto_auto]"
-                    >
-                      <input
-                        value={variant.size ?? ""}
-                        onChange={(event) => updateVariant(index, { size: event.target.value })}
-                        onBlur={() => translateVariantOption(index, "size")}
-                        placeholder="Size (optional)"
-                        aria-label={`Variant ${index + 1} size`}
-                        className={inputClass}
-                      />
-                      <input
-                        value={variant.color ?? ""}
-                        onChange={(event) => updateVariant(index, { color: event.target.value })}
-                        onBlur={() => translateVariantOption(index, "color")}
-                        placeholder="Color (optional)"
-                        aria-label={`Variant ${index + 1} color`}
-                        className={inputClass}
-                      />
-                      <input
-                        value={variant.size_ar ?? ""}
-                        onChange={(event) => updateVariant(index, { size_ar: event.target.value })}
-                        placeholder="Arabic size"
-                        aria-label={`Variant ${index + 1} Arabic size`}
-                        lang="ar"
-                        dir="rtl"
-                        className={inputClass}
-                      />
-                      <input
-                        value={variant.color_ar ?? ""}
-                        onChange={(event) => updateVariant(index, { color_ar: event.target.value })}
-                        placeholder="Arabic color"
-                        aria-label={`Variant ${index + 1} Arabic color`}
-                        lang="ar"
-                        dir="rtl"
-                        className={inputClass}
-                      />
-                      <label className="flex items-center gap-2 whitespace-nowrap px-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={variant.available}
-                          onChange={(event) =>
-                            updateVariant(index, { available: event.target.checked })
-                          }
-                          className="h-4 w-4 accent-primary"
-                        />
-                        Available
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setVariants((current) =>
-                            current.filter((_, itemIndex) => itemIndex !== index),
-                          )
-                        }
-                        className="rounded-lg p-2 text-destructive hover:bg-destructive/10"
-                        aria-label={`Remove variant ${index + 1}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                  {variants.length === 0 && (
-                    <p className="rounded-xl border border-dashed border-border p-5 text-center text-xs text-muted-foreground">
-                      No variants. Add one if this product has selectable options.
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <div className="sm:col-span-2 grid gap-3 sm:grid-cols-2">
-              <CheckboxCard
-                checked={available}
-                onChange={setAvailable}
-                title="Available"
-                description="Customers can purchase this product."
-              />
-              <CheckboxCard
-                checked={visible}
-                onChange={setVisible}
-                title="Visible"
-                description="Show this product in the storefront."
-              />
-              <CheckboxCard
-                checked={isNewArrival}
-                onChange={setIsNewArrival}
-                title="New Arrival"
-                description="Feature this product as a new arrival."
-              />
-              <CheckboxCard
-                checked={isBestSeller}
-                onChange={setIsBestSeller}
-                title="Best Seller"
-                description="Feature this product as a best seller."
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="flex shrink-0 justify-end gap-3 border-t border-border/50 bg-secondary/10 p-5">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-border bg-background px-6 py-2.5 text-sm font-medium hover:bg-secondary/80"
+            className="min-h-11 rounded-full border border-border bg-background px-6 py-2.5 text-sm font-medium hover:bg-secondary/80"
           >
             Cancel
           </button>
           <button
             disabled={saving}
-            className="rounded-full bg-primary px-8 py-2.5 text-sm font-semibold uppercase tracking-wider text-primary-foreground hover:bg-rose-deep disabled:opacity-60"
+            className="min-h-11 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold uppercase tracking-wider text-primary-foreground hover:bg-rose-deep disabled:opacity-60"
           >
             {saving ? saveStatus : "Save Product"}
           </button>
+        </>
+      }
+    >
+      {saveError && (
+        <div
+          role="alert"
+          className="mb-5 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
+          {saveError}
         </div>
-      </form>
-    </div>
+      )}
+      <div className="grid gap-5 sm:grid-cols-2">
+        <Field label="Name (EN)">
+          <input
+            value={nameTranslation.english}
+            onChange={(event) => updateName(event.target.value)}
+            onBlur={() => void nameTranslation.translate()}
+            required
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Name (AR)">
+          <input
+            name="name_ar"
+            value={nameTranslation.arabic}
+            onChange={(event) => nameTranslation.updateArabic(event.target.value)}
+            dir="rtl"
+            aria-busy={nameTranslation.status === "translating"}
+            className={inputClass}
+          />
+          {nameTranslation.status !== "idle" && (
+            <p className="mt-1.5 text-xs text-muted-foreground" role="status">
+              {nameTranslation.status === "translating"
+                ? "Translating product name..."
+                : "Automatic translation failed. Enter the Arabic name manually or blur the English name to retry."}
+            </p>
+          )}
+        </Field>
+        <Field label="Slug">
+          <input
+            value={slug}
+            onChange={(event) => {
+              setSlugEdited(true);
+              setSlug(toSlug(event.target.value));
+            }}
+            required
+            pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Brand">
+          <select
+            name="brand_id"
+            defaultValue={initial?.brand_id ?? brands[0]?.id}
+            required
+            className={inputClass}
+          >
+            {brands.map((brand) => (
+              <option key={brand.id} value={brand.id}>
+                {brand.name}
+                {brand.visible ? "" : " (hidden)"}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Kind">
+          <select
+            value={kind}
+            onChange={(event) => setKind(event.target.value as ProductKind)}
+            className={inputClass}
+          >
+            {KINDS.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+        {kind === "jewelry" && (
+          <Field label="Category">
+            <select
+              name="category"
+              defaultValue={initial?.category ?? "necklace"}
+              required
+              className={inputClass}
+            >
+              {CATEGORIES.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
+        <Field label="Price (OMR)">
+          <input
+            name="price"
+            type="number"
+            min="0.001"
+            step="0.001"
+            defaultValue={Number(initial?.price ?? 1.1).toFixed(3)}
+            required
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Old price (OMR)">
+          <input
+            name="old_price"
+            type="number"
+            min="0.001"
+            step="0.001"
+            defaultValue={initial?.old_price == null ? "" : Number(initial.old_price).toFixed(3)}
+            placeholder="Optional"
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Badge">
+          <input
+            name="badge"
+            defaultValue={initial?.badge ?? ""}
+            placeholder="Optional, e.g. new or sale"
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Display color">
+          <input
+            name="display_color"
+            defaultValue={initial?.display_color ?? ""}
+            placeholder="Optional, e.g. Rose Gold"
+            className={inputClass}
+          />
+        </Field>
+        <div className="sm:col-span-2 grid gap-5 sm:grid-cols-2">
+          <Field label="Description (EN)">
+            <textarea
+              name="description_en"
+              value={descriptionTranslation.english}
+              onChange={(event) => descriptionTranslation.updateEnglish(event.target.value)}
+              onBlur={() => void descriptionTranslation.translate()}
+              rows={3}
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Description (AR)">
+            <textarea
+              name="description_ar"
+              value={descriptionTranslation.arabic}
+              onChange={(event) => descriptionTranslation.updateArabic(event.target.value)}
+              rows={3}
+              dir="rtl"
+              aria-busy={descriptionTranslation.status === "translating"}
+              className={inputClass}
+            />
+            {descriptionTranslation.status !== "idle" && (
+              <p className="mt-1.5 text-xs text-muted-foreground" role="status">
+                {descriptionTranslation.status === "translating"
+                  ? "Translating product description..."
+                  : "Automatic translation failed. Enter the Arabic description manually or blur the English description to retry."}
+              </p>
+            )}
+          </Field>
+        </div>
+
+        <div className="sm:col-span-2 grid gap-5 lg:grid-cols-[1fr_2fr]">
+          <Field label="Main image">
+            <label className="group flex h-44 cursor-pointer items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-primary/20 bg-secondary/10 transition-colors hover:bg-secondary/30">
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.[0];
+                  event.currentTarget.value = "";
+                  chooseMainImage(file);
+                }}
+                className="hidden"
+              />
+              {mainPreview ? (
+                <img src={mainPreview} alt="Preview" className="h-full w-full object-cover" />
+              ) : (
+                <span className="flex flex-col items-center gap-2 text-sm text-muted-foreground">
+                  <ImagePlus className="h-7 w-7 text-primary" /> Upload main image
+                </span>
+              )}
+            </label>
+          </Field>
+          <Field label="Gallery images">
+            <div className="grid min-h-44 grid-cols-2 content-start gap-3 rounded-2xl border border-border/60 bg-secondary/10 p-3 sm:grid-cols-3">
+              {galleryUrls.map((url) => (
+                <ImageThumbnail
+                  key={url}
+                  src={url}
+                  onRemove={() => {
+                    markRemovedPath(url);
+                    setGalleryUrls((current) => current.filter((item) => item !== url));
+                  }}
+                />
+              ))}
+              {galleryFiles.map((file, index) => (
+                <ImageThumbnail
+                  key={fileIdentity(file)}
+                  src={galleryPreviews[index]}
+                  onRemove={() => {
+                    revokeBlobUrl(galleryPreviewsRef.current[index]);
+                    galleryPreviewsRef.current = galleryPreviewsRef.current.filter(
+                      (_, itemIndex) => itemIndex !== index,
+                    );
+                    setGalleryPreviews(galleryPreviewsRef.current);
+                    setGalleryFiles((current) =>
+                      current.filter((_, itemIndex) => itemIndex !== index),
+                    );
+                  }}
+                />
+              ))}
+              <label className="flex aspect-square w-full cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-primary/20 text-muted-foreground transition-colors hover:bg-secondary">
+                <input
+                  type="file"
+                  multiple
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={(event) => {
+                    const files = Array.from(event.currentTarget.files ?? []);
+                    event.currentTarget.value = "";
+                    addGallery(files);
+                  }}
+                  className="hidden"
+                />
+                <Plus className="h-6 w-6" />
+              </label>
+            </div>
+          </Field>
+        </div>
+
+        {kind === "jewelry" && (
+          <div className="sm:col-span-2 rounded-2xl border border-border/60 bg-secondary/10 p-4">
+            <div className="mb-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+              <div>
+                <h4 className="font-medium">Variants</h4>
+                <p className="text-xs text-muted-foreground">
+                  Add each purchasable size and color combination.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setVariants((current) => [
+                    ...current,
+                    {
+                      id: crypto.randomUUID(),
+                      size: "",
+                      color: "",
+                      size_ar: "",
+                      color_ar: "",
+                      available: true,
+                    },
+                  ])
+                }
+                className="inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-border bg-background px-3 py-2 text-sm font-medium hover:bg-secondary sm:w-auto"
+              >
+                <Plus className="h-3.5 w-3.5" /> Add variant
+              </button>
+            </div>
+            <div className="space-y-2">
+              {variants.map((variant, index) => (
+                <div
+                  key={variant.id}
+                  className="grid min-w-0 items-start gap-3 rounded-xl border border-border/50 bg-background p-3 sm:grid-cols-2"
+                >
+                  <Field label="Size (EN)">
+                    <input
+                      value={variant.size ?? ""}
+                      onChange={(event) => updateVariant(index, { size: event.target.value })}
+                      onBlur={() => translateVariantOption(index, "size")}
+                      placeholder="Size (optional)"
+                      aria-label={`Variant ${index + 1} size`}
+                      className={inputClass}
+                    />
+                  </Field>
+                  <Field label="Color (EN)">
+                    <input
+                      value={variant.color ?? ""}
+                      onChange={(event) => updateVariant(index, { color: event.target.value })}
+                      onBlur={() => translateVariantOption(index, "color")}
+                      placeholder="Color (optional)"
+                      aria-label={`Variant ${index + 1} color`}
+                      className={inputClass}
+                    />
+                  </Field>
+                  <Field label="Size (AR)">
+                    <input
+                      value={variant.size_ar ?? ""}
+                      onChange={(event) => updateVariant(index, { size_ar: event.target.value })}
+                      placeholder="Arabic size"
+                      aria-label={`Variant ${index + 1} Arabic size`}
+                      lang="ar"
+                      dir="rtl"
+                      className={inputClass}
+                    />
+                  </Field>
+                  <Field label="Color (AR)">
+                    <input
+                      value={variant.color_ar ?? ""}
+                      onChange={(event) => updateVariant(index, { color_ar: event.target.value })}
+                      placeholder="Arabic color"
+                      aria-label={`Variant ${index + 1} Arabic color`}
+                      lang="ar"
+                      dir="rtl"
+                      className={inputClass}
+                    />
+                  </Field>
+                  <div className="flex items-center justify-between gap-3 sm:col-span-2">
+                    <label className="flex min-h-11 items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={variant.available}
+                        onChange={(event) =>
+                          updateVariant(index, { available: event.target.checked })
+                        }
+                        className="h-4 w-4 accent-primary"
+                      />
+                      Available
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setVariants((current) =>
+                          current.filter((_, itemIndex) => itemIndex !== index),
+                        )
+                      }
+                      className="grid h-11 w-11 place-items-center justify-self-end rounded-lg text-destructive hover:bg-destructive/10"
+                      aria-label={`Remove variant ${index + 1}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {variants.length === 0 && (
+                <p className="rounded-xl border border-dashed border-border p-5 text-center text-xs text-muted-foreground">
+                  No variants. Add one if this product has selectable options.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="sm:col-span-2 grid gap-3 sm:grid-cols-2">
+          <CheckboxCard
+            checked={available}
+            onChange={setAvailable}
+            title="Available"
+            description="Customers can purchase this product."
+          />
+          <CheckboxCard
+            checked={visible}
+            onChange={setVisible}
+            title="Visible"
+            description="Show this product in the storefront."
+          />
+          <CheckboxCard
+            checked={isNewArrival}
+            onChange={setIsNewArrival}
+            title="New Arrival"
+            description="Feature this product as a new arrival."
+          />
+          <CheckboxCard
+            checked={isBestSeller}
+            onChange={setIsBestSeller}
+            title="Best Seller"
+            description="Feature this product as a best seller."
+          />
+        </div>
+      </div>
+    </AdminFormDialog>
   );
 }
 
@@ -1046,7 +1114,8 @@ function StatusToggle({
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-full px-3 py-1 text-xs font-medium disabled:opacity-50 ${
+      aria-pressed={checked}
+      className={`min-h-11 rounded-full px-3 py-2 text-xs font-medium disabled:opacity-50 ${
         checked ? "bg-emerald-500/10 text-emerald-600" : "bg-muted text-muted-foreground"
       }`}
     >
@@ -1072,9 +1141,9 @@ function CheckboxCard({
         type="checkbox"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
-        className="mt-0.5 h-4 w-4 accent-primary"
+        className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
       />
-      <span>
+      <span className="min-w-0">
         <span className="block text-sm font-medium">{title}</span>
         <span className="block text-xs text-muted-foreground">{description}</span>
       </span>
@@ -1084,12 +1153,12 @@ function CheckboxCard({
 
 function ImageThumbnail({ src, onRemove }: { src: string; onRemove: () => void }) {
   return (
-    <div className="group relative h-24 w-24 overflow-hidden rounded-xl border border-border">
+    <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-border">
       <img src={src} alt="" className="h-full w-full object-cover" />
       <button
         type="button"
         onClick={onRemove}
-        className="absolute right-1 top-1 rounded-full bg-background/90 p-1 text-destructive opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+        className="absolute right-1 top-1 grid h-10 w-10 place-items-center rounded-full bg-background/90 text-destructive shadow-sm"
         aria-label="Remove image"
       >
         <X className="h-3.5 w-3.5" />
@@ -1269,11 +1338,11 @@ function toSlug(value: string) {
 }
 
 const inputClass =
-  "w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus:border-primary focus:outline-none";
+  "min-h-11 w-full min-w-0 rounded-xl border border-border bg-background px-3 py-2.5 text-base focus:border-primary focus:outline-none sm:text-sm";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div>
+    <div className="min-w-0">
       <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-muted-foreground">
         {label}
       </label>

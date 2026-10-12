@@ -86,51 +86,75 @@ function Dashboard() {
     <div className="space-y-8">
       <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {cards.map(({ label, value, Icon, tint }) => (
-          <div key={label} className="glass rounded-2xl p-5">
+          <div key={label} className="glass min-w-0 rounded-2xl p-4 sm:p-5">
             <div className={`grid place-items-center h-10 w-10 rounded-xl ${tint} mb-4`}>
               <Icon className="h-5 w-5" />
             </div>
             <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
-            <p className="font-display text-2xl mt-1">{value}</p>
+            <p className="mt-1 break-words font-display text-2xl">{value}</p>
           </div>
         ))}
       </div>
 
-      <div className="glass rounded-2xl p-6">
+      <div className="glass min-w-0 rounded-2xl p-4 sm:p-6">
         <h2 className="font-display text-2xl mb-6">Recent Orders</h2>
         {recent.length === 0 ? (
           <p className="text-sm text-muted-foreground">No orders yet.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
-                <tr>
-                  <th className="text-start py-3">Order</th>
-                  <th className="text-start">Customer</th>
-                  <th className="text-start">Status</th>
-                  <th className="text-start">Date</th>
-                  <th className="text-end">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recent.map((o) => (
-                  <tr key={o.id} className="border-b border-border/60">
-                    <td className="py-3 font-medium">{o.order_number}</td>
-                    <td>{o.full_name}</td>
-                    <td>
-                      <span className="capitalize inline-block rounded-full bg-primary/10 text-primary px-3 py-1 text-xs">
-                        {o.status}
-                      </span>
-                    </td>
-                    <td className="text-muted-foreground">
-                      {new Date(o.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="text-end font-semibold">{formatPrice(Number(o.total))}</td>
+          <>
+            <ul className="space-y-3 md:hidden" aria-label="Recent orders">
+              {recent.map((order) => (
+                <li
+                  key={order.id}
+                  className="min-w-0 rounded-xl border border-border/60 p-3 text-sm"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <span className="min-w-0 break-all font-medium">{order.order_number}</span>
+                    <span className="font-semibold">{formatPrice(Number(order.total))}</span>
+                  </div>
+                  <p className="mt-2 break-words">{order.full_name}</p>
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                    <span className="rounded-full bg-primary/10 px-3 py-1 text-xs capitalize text-primary">
+                      {order.status.replaceAll("_", " ")}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(order.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[560px] text-sm">
+                <thead className="text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
+                  <tr>
+                    <th className="text-start py-3">Order</th>
+                    <th className="text-start">Customer</th>
+                    <th className="text-start">Status</th>
+                    <th className="text-start">Date</th>
+                    <th className="text-end">Total</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {recent.map((o) => (
+                    <tr key={o.id} className="border-b border-border/60">
+                      <td className="py-3 font-medium">{o.order_number}</td>
+                      <td>{o.full_name}</td>
+                      <td>
+                        <span className="capitalize inline-block rounded-full bg-primary/10 text-primary px-3 py-1 text-xs">
+                          {o.status}
+                        </span>
+                      </td>
+                      <td className="text-muted-foreground">
+                        {new Date(o.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="text-end font-semibold">{formatPrice(Number(o.total))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>

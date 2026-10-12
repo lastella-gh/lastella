@@ -95,7 +95,7 @@ function AdminSettings() {
 
   return (
     <form onSubmit={save} className="space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h2 className="font-display text-3xl">Store Settings</h2>
           <p className="text-xs text-muted-foreground mt-1">
@@ -104,13 +104,13 @@ function AdminSettings() {
         </div>
         <button
           disabled={saving}
-          className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-5 py-2.5 text-sm font-semibold uppercase tracking-wider hover:bg-rose-deep transition-all disabled:opacity-60"
+          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-primary text-primary-foreground px-5 py-2.5 text-sm font-semibold uppercase tracking-wider hover:bg-rose-deep transition-all sm:w-auto disabled:opacity-60"
         >
           <Save className="h-4 w-4" /> {saving ? "Saving..." : "Save Settings"}
         </button>
       </div>
 
-      <section className="glass rounded-2xl p-6 space-y-5">
+      <section className="glass min-w-0 space-y-5 rounded-2xl p-4 sm:p-6">
         <div>
           <h3 className="font-display text-2xl">Storefront Video</h3>
           <p className="text-sm text-muted-foreground mt-1">
@@ -123,7 +123,7 @@ function AdminSettings() {
             type="checkbox"
             checked={settings.video_enabled}
             onChange={(event) => update("video_enabled", event.target.checked)}
-            className="h-4 w-4 rounded border-border accent-primary"
+            className="h-4 w-4 shrink-0 rounded border-border accent-primary"
           />
           <span className="text-sm font-medium">Enable storefront video</span>
         </label>
@@ -150,7 +150,7 @@ function AdminSettings() {
         </div>
       </section>
 
-      <section className="glass rounded-2xl p-6 space-y-5">
+      <section className="glass min-w-0 space-y-5 rounded-2xl p-4 sm:p-6">
         <div>
           <h3 className="font-display text-2xl">Bank Transfer</h3>
           <p className="text-sm text-muted-foreground mt-1">
@@ -197,16 +197,22 @@ function AdminSettings() {
           </div>
         </div>
       </section>
+      <button
+        disabled={saving}
+        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold uppercase tracking-wider text-primary-foreground transition-all hover:bg-rose-deep disabled:opacity-60 sm:hidden"
+      >
+        <Save className="h-4 w-4" /> {saving ? "Saving..." : "Save Settings"}
+      </button>
     </form>
   );
 }
 
 const inputClass =
-  "w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:border-primary";
+  "min-h-11 w-full min-w-0 rounded-xl border border-border bg-background px-3 py-2.5 text-base focus:outline-none focus:border-primary sm:text-sm";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div>
+    <div className="min-w-0">
       <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground block mb-1.5">
         {label}
       </label>

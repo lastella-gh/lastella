@@ -101,12 +101,13 @@ function AdminOrders() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <h2 className="font-display text-3xl">Orders</h2>
         <select
           value={filter}
           onChange={(e) => setFilter(e.target.value as typeof filter)}
-          className="rounded-full border border-border bg-background px-4 py-2 text-sm"
+          aria-label="Filter orders by status"
+          className="min-h-11 w-full min-w-0 rounded-full border border-border bg-background px-4 py-2 text-base sm:w-auto sm:text-sm"
         >
           <option value="all">All statuses</option>
           {STATUSES.map((s) => (
@@ -133,15 +134,18 @@ function AdminOrders() {
                       const next = isOpen ? null : o.id;
                       setOpen(next);
                     }}
-                    className="w-full text-start px-5 py-4 flex items-center gap-4 hover:bg-secondary/30 transition"
+                    aria-expanded={isOpen}
+                    className="flex w-full items-start gap-3 px-4 py-4 text-start transition hover:bg-secondary/30 sm:px-5"
                   >
-                    <div className="min-w-0 flex-1 grid sm:grid-cols-5 gap-3 items-center">
-                      <div className="font-medium truncate">{o.order_number}</div>
-                      <div className="text-sm truncate">{o.full_name}</div>
-                      <div className="text-xs text-muted-foreground">
+                    <div className="grid min-w-0 flex-1 grid-cols-2 items-start gap-2 xl:grid-cols-5 xl:items-center xl:gap-3">
+                      <div className="min-w-0 break-all font-medium">{o.order_number}</div>
+                      <div className="col-span-2 min-w-0 break-words text-sm xl:col-span-1">
+                        {o.full_name}
+                      </div>
+                      <div className="col-span-2 text-xs text-muted-foreground xl:col-span-1">
                         {new Date(o.created_at).toLocaleString()}
                       </div>
-                      <div className="flex flex-wrap gap-1">
+                      <div className="col-span-2 flex flex-wrap gap-1 xl:col-span-1">
                         <span className="capitalize inline-block rounded-full bg-primary/10 text-primary px-3 py-1 text-xs">
                           {o.status.replaceAll("_", " ")}
                         </span>
@@ -150,15 +154,17 @@ function AdminOrders() {
                           hasProof={Boolean(o.payment_proof_path)}
                         />
                       </div>
-                      <div className="text-end font-semibold">{formatPrice(Number(o.total))}</div>
+                      <div className="col-start-2 row-start-1 text-end font-semibold xl:col-auto xl:row-auto">
+                        {formatPrice(Number(o.total))}
+                      </div>
                     </div>
                     <ChevronDown
-                      className={`h-4 w-4 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                      className={`mt-1 h-4 w-4 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`}
                     />
                   </button>
                   {isOpen && (
-                    <div className="px-5 py-5 bg-secondary/20 border-t border-border grid lg:grid-cols-2 gap-6">
-                      <div className="space-y-2 text-sm">
+                    <div className="grid min-w-0 gap-6 border-t border-border bg-secondary/20 px-4 py-5 sm:px-5 xl:grid-cols-2">
+                      <div className="min-w-0 space-y-2 break-words text-sm">
                         <h4 className="font-semibold uppercase tracking-wider text-xs text-muted-foreground mb-2">
                           Customer
                         </h4>
@@ -174,7 +180,7 @@ function AdminOrders() {
                           Payment: <span className="font-medium">{o.payment_method}</span>
                         </p>
                         <div className="mt-3 rounded-xl border border-border bg-background/60 p-3 space-y-2">
-                          <div className="flex items-center justify-between gap-2 text-xs uppercase tracking-wider">
+                          <div className="flex flex-wrap items-center justify-between gap-2 text-xs uppercase tracking-wider">
                             <span>Payment review</span>
                             <PaymentBadge
                               status={o.payment_status}
@@ -187,18 +193,18 @@ function AdminOrders() {
                                 type="button"
                                 disabled={busy === `proof-${o.id}`}
                                 onClick={() => void viewProof(o.id)}
-                                className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium hover:bg-secondary disabled:opacity-50"
+                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium hover:bg-secondary disabled:opacity-50"
                               >
                                 <ExternalLink className="h-3.5 w-3.5" />
                                 {busy === `proof-${o.id}` ? "Opening..." : "View proof"}
                               </button>
                               {o.payment_status !== "payment_verified" && (
-                                <div className="flex flex-col sm:flex-row gap-2">
+                                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                                   <button
                                     type="button"
                                     disabled={busy === o.id}
                                     onClick={() => void reviewPayment(o.id, "payment_verified")}
-                                    className="inline-flex items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                                    className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
                                   >
                                     <Check className="h-3.5 w-3.5" /> Verify payment
                                   </button>
@@ -206,7 +212,7 @@ function AdminOrders() {
                                     type="button"
                                     disabled={busy === o.id}
                                     onClick={() => void reviewPayment(o.id, "payment_rejected")}
-                                    className="inline-flex items-center justify-center gap-1 rounded-lg border border-destructive/40 px-3 py-2 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                                    className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-destructive/40 px-3 py-2 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
                                   >
                                     <X className="h-3.5 w-3.5" /> Reject payment
                                   </button>
@@ -221,8 +227,9 @@ function AdminOrders() {
                                       [o.id]: event.target.value,
                                     }))
                                   }
+                                  aria-label="Payment rejection reason"
                                   placeholder="Reason required when rejecting"
-                                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs"
+                                  className="min-h-11 w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2 text-base sm:text-sm"
                                 />
                               )}
                               {o.payment_rejection_reason && (
@@ -252,7 +259,8 @@ function AdminOrders() {
                             value={o.status}
                             disabled={busy === o.id}
                             onChange={(e) => updateStatus(o.id, e.target.value as Status)}
-                            className="rounded-xl border border-border bg-background px-3 py-2 text-sm"
+                            aria-label="Update order status"
+                            className="min-h-11 w-full min-w-0 rounded-xl border border-border bg-background px-3 py-2 text-base sm:text-sm"
                           >
                             {STATUSES.map((s) => (
                               <option key={s} value={s}>
@@ -262,14 +270,17 @@ function AdminOrders() {
                           </select>
                         </div>
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <h4 className="font-semibold uppercase tracking-wider text-xs text-muted-foreground mb-3">
                           Items
                         </h4>
                         <div className="space-y-2">
                           {(items[o.id] ?? []).map((it) => (
-                            <div key={it.id} className="flex items-center gap-3 text-sm">
-                              <div className="h-12 w-12 rounded-lg bg-secondary overflow-hidden shrink-0">
+                            <div
+                              key={it.id}
+                              className="grid grid-cols-[3rem_minmax(0,1fr)] items-start gap-x-3 gap-y-1 text-sm sm:grid-cols-[3rem_minmax(0,1fr)_auto]"
+                            >
+                              <div className="row-span-2 h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-secondary">
                                 {it.product_image && (
                                   <img
                                     src={it.product_image}
@@ -279,14 +290,14 @@ function AdminOrders() {
                                 )}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="truncate">{it.product_name}</p>
+                                <p className="break-words">{it.product_name}</p>
                                 <p className="text-xs text-muted-foreground">
                                   ×{it.quantity} · {formatPrice(Number(it.unit_price))}
                                   {it.size ? ` · ${it.size}` : ""}
                                   {it.color ? ` · ${it.color}` : ""}
                                 </p>
                               </div>
-                              <span className="font-semibold">
+                              <span className="col-start-2 font-semibold sm:col-start-3 sm:row-start-1">
                                 {formatPrice(Number(it.unit_price) * it.quantity)}
                               </span>
                             </div>
@@ -316,7 +327,7 @@ function AdminOrders() {
 function Row({ label, value, bold }: { label: string; value: React.ReactNode; bold?: boolean }) {
   return (
     <div
-      className={`flex justify-between ${bold ? "font-display text-base pt-2 border-t border-border" : ""}`}
+      className={`flex flex-wrap justify-between gap-x-3 gap-y-1 ${bold ? "font-display text-base pt-2 border-t border-border" : ""}`}
     >
       <span className="text-muted-foreground">{label}</span>
       <span className={bold ? "font-semibold" : ""}>{value}</span>

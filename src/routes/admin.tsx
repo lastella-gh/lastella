@@ -20,7 +20,7 @@ function AdminLayout() {
 
   if (loading)
     return (
-      <div className="p-24 text-center">
+      <div className="px-4 py-16 text-center sm:py-24">
         <div className="inline-flex flex-col items-center gap-4 text-muted-foreground">
           <svg className="animate-spin h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24">
             <circle
@@ -68,32 +68,36 @@ function AdminLayout() {
   ];
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
-      <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
+    <div dir="ltr" className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
+      <div className="mb-6 flex flex-col items-start justify-between gap-4 sm:mb-8 sm:flex-row sm:items-center">
         <div>
           <p className="text-xs uppercase tracking-[0.35em] text-primary mb-1">Lastella</p>
-          <h1 className="font-display text-4xl">Admin Panel</h1>
+          <h1 className="font-display text-3xl sm:text-4xl">Admin Panel</h1>
         </div>
         <Link
           to="/"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"
+          className="inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground hover:text-primary"
         >
           <ArrowLeft className="h-4 w-4" /> Back to store
         </Link>
       </div>
 
-      <div className="grid lg:grid-cols-[240px_1fr] gap-8">
-        <aside className="glass rounded-2xl p-3 h-fit">
-          <nav className="flex flex-wrap lg:flex-col gap-1">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-8">
+        <aside className="glass h-fit min-w-0 rounded-2xl p-2 lg:sticky lg:top-28 lg:p-3">
+          <nav
+            aria-label="Admin navigation"
+            className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-1"
+          >
             {nav.map(({ to, label, Icon, exact }) => {
               const active = exact ? location.pathname === to : location.pathname.startsWith(to);
               return (
                 <Link
                   key={to}
                   to={to}
-                  className={`flex items-center gap-2.5 rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${active ? "bg-primary text-primary-foreground" : "hover:bg-secondary"}`}
+                  aria-current={active ? "page" : undefined}
+                  className={`flex min-h-11 min-w-0 items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${active ? "bg-primary text-primary-foreground" : "hover:bg-secondary"}`}
                 >
-                  <Icon className="h-4 w-4" /> {label}
+                  <Icon className="h-4 w-4 shrink-0" /> <span>{label}</span>
                 </Link>
               );
             })}

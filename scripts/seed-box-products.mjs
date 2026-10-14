@@ -6,18 +6,18 @@ const secretKey = process.env.SUPABASE_SECRET_KEY;
 if (!supabaseUrl || !secretKey) throw new Error("Missing Supabase environment variables");
 
 const brands = [
-  ["aigner", "Aigner", "Red / Burgundy"],
-  ["apm-monaco", "APM Monaco", "Black / Graphite"],
-  ["bvlgari", "Bvlgari", "Bronze / Rose Gold"],
-  ["cartier", "Cartier", "Red / Burgundy"],
-  ["chanel", "Chanel", "Black"],
-  ["dior", "Dior", "White / Ivory"],
-  ["hermes", "Hermès", "Orange"],
-  ["louis-vuitton", "Louis Vuitton", "Saffron Orange"],
-  ["messika", "Messika", "Taupe / Gray"],
-  ["swarovski", "Swarovski", "Navy Blue"],
-  ["valentino", "Valentino", "Red"],
-  ["van-cleef-and-arpels", "Van Cleef & Arpels", "Olive Green"],
+  ["aigner", "Aigner"],
+  ["apm-monaco", "APM Monaco"],
+  ["bvlgari", "Bvlgari"],
+  ["cartier", "Cartier"],
+  ["chanel", "Chanel"],
+  ["dior", "Dior"],
+  ["hermes", "Hermès"],
+  ["louis-vuitton", "Louis Vuitton"],
+  ["messika", "Messika"],
+  ["swarovski", "Swarovski"],
+  ["valentino", "Valentino"],
+  ["van-cleef-and-arpels", "Van Cleef & Arpels"],
 ];
 const brandBySlug = new Map(brands.map((brand) => [brand[0], brand]));
 const boxDirectory = resolve("boxes");
@@ -59,7 +59,7 @@ const brandIds = new Map(brandRows.map((brand) => [brand.slug, brand.id]));
 
 const products = [...grouped].map(([key, images]) => {
   const [brandSlug, kind] = key.split(":");
-  const [, brandName, displayColor] = brandBySlug.get(brandSlug);
+  const [, brandName] = brandBySlug.get(brandSlug);
   const isRing = kind === "ring_box";
   return {
     slug: `${brandSlug}-${isRing ? "ring-box" : "general-box"}`,
@@ -69,7 +69,6 @@ const products = [...grouped].map(([key, images]) => {
     category: null,
     kind,
     brand_id: brandIds.get(brandSlug),
-    display_color: displayColor,
     price: 1.1,
     old_price: null,
     image: images[0],

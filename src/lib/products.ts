@@ -33,7 +33,6 @@ export function mapProduct(row: ProductRow): Product {
     kind: row.kind,
     brandId: row.brand_id,
     brand: row.brand,
-    displayColor: row.display_color ?? undefined,
     price: Number(row.price),
     oldPrice: row.old_price ? Number(row.old_price) : undefined,
     image: row.image,

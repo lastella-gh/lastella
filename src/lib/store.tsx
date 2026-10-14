@@ -22,7 +22,6 @@ export interface Product {
   kind: ProductKind;
   brandId: string;
   brand: { id: string; name: string; slug: string; visible: boolean } | null;
-  displayColor?: string;
   price: number;
   oldPrice?: number;
   image: string;

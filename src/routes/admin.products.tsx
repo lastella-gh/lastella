@@ -535,50 +535,48 @@ function ProductForm({
         return { ...variant, size, color, size_ar: size_ar || null, color_ar: color_ar || null };
       }),
     );
-    if (kind === "jewelry") {
-      if (cleanedVariants.some((variant) => !variant.size && !variant.color)) {
-        toast.error("Each variant needs a size, a color, or both");
-        setSaving(false);
-        setSaveStatus("");
-        return;
+    if (cleanedVariants.some((variant) => !variant.size && !variant.color)) {
+      toast.error("Each variant needs a size, a color, or both");
+      setSaving(false);
+      setSaveStatus("");
+      return;
+    }
+    if (
+      cleanedVariants.some(
+        (variant) =>
+          (variant.color && !variant.color_ar) ||
+          (variant.size && !/^\d+(?:\.\d+)?$/.test(variant.size) && !variant.size_ar),
+      )
+    ) {
+      toast.error("Add Arabic labels for every text color and size option");
+      setSaving(false);
+      setSaveStatus("");
+      return;
+    }
+    const labelsAreConsistent = (key: "color" | "size", arabicKey: "color_ar" | "size_ar") => {
+      const labels = new Map<string, string>();
+      for (const variant of cleanedVariants) {
+        const value = variant[key];
+        const label = variant[arabicKey];
+        if (!value || !label) continue;
+        const existingLabel = labels.get(value);
+        if (existingLabel && existingLabel !== label) return false;
+        labels.set(value, label);
       }
-      if (
-        cleanedVariants.some(
-          (variant) =>
-            (variant.color && !variant.color_ar) ||
-            (variant.size && !/^\d+(?:\.\d+)?$/.test(variant.size) && !variant.size_ar),
-        )
-      ) {
-        toast.error("Add Arabic labels for every text color and size option");
-        setSaving(false);
-        setSaveStatus("");
-        return;
-      }
-      const labelsAreConsistent = (key: "color" | "size", arabicKey: "color_ar" | "size_ar") => {
-        const labels = new Map<string, string>();
-        for (const variant of cleanedVariants) {
-          const value = variant[key];
-          const label = variant[arabicKey];
-          if (!value || !label) continue;
-          const existingLabel = labels.get(value);
-          if (existingLabel && existingLabel !== label) return false;
-          labels.set(value, label);
-        }
-        return true;
-      };
-      if (!labelsAreConsistent("color", "color_ar") || !labelsAreConsistent("size", "size_ar")) {
-        toast.error("Use the same Arabic label for matching variant options");
-        setSaving(false);
-        setSaveStatus("");
-        return;
-      }
-      const optionKeys = cleanedVariants.map(variantKey);
-      if (new Set(optionKeys).size !== optionKeys.length) {
-        toast.error("Variant size and color combinations must be unique");
-        setSaving(false);
-        setSaveStatus("");
-        return;
-      }
+      return true;
+    };
+    if (!labelsAreConsistent("color", "color_ar") || !labelsAreConsistent("size", "size_ar")) {
+      toast.error("Use the same Arabic label for matching variant options");
+      setSaving(false);
+      setSaveStatus("");
+      return;
+    }
+    const optionKeys = cleanedVariants.map(variantKey);
+    if (new Set(optionKeys).size !== optionKeys.length) {
+      toast.error("Variant size and color combinations must be unique");
+      setSaving(false);
+      setSaveStatus("");
+      return;
     }
 
     const uploadedPaths: string[] = [];
@@ -633,7 +631,6 @@ function ProductForm({
         badge: optionalText(form.get("badge")),
         description_en: optionalText(form.get("description_en")),
         description_ar: optionalText(form.get("description_ar")),
-        display_color: optionalText(form.get("display_color")),
         image,
         images: [...galleryUrls, ...uploadedGallery],
         available,
@@ -660,11 +657,7 @@ function ProductForm({
       }
       productPersisted = true;
 
-      await replaceVariants(
-        productId,
-        kind === "jewelry" ? cleanedVariants : [],
-        initial?.variants ?? [],
-      );
+      await replaceVariants(productId, cleanedVariants, initial?.variants ?? []);
 
       if (removedExistingPaths.length > 0) {
         const retainedPaths = new Set(
@@ -846,14 +839,7 @@ function ProductForm({
             className={inputClass}
           />
         </Field>
-        <Field label="Display color">
-          <input
-            name="display_color"
-            defaultValue={initial?.display_color ?? ""}
-            placeholder="Optional, e.g. Rose Gold"
-            className={inputClass}
-          />
-        </Field>
+
         <div className="sm:col-span-2 grid gap-5 sm:grid-cols-2">
           <Field label="Description (EN)">
             <textarea
@@ -953,118 +939,116 @@ function ProductForm({
           </Field>
         </div>
 
-        {kind === "jewelry" && (
-          <div className="sm:col-span-2 rounded-2xl border border-border/60 bg-secondary/10 p-4">
-            <div className="mb-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
-              <div>
-                <h4 className="font-medium">Variants</h4>
-                <p className="text-xs text-muted-foreground">
-                  Add each purchasable size and color combination.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() =>
-                  setVariants((current) => [
-                    ...current,
-                    {
-                      id: crypto.randomUUID(),
-                      size: "",
-                      color: "",
-                      size_ar: "",
-                      color_ar: "",
-                      available: true,
-                    },
-                  ])
-                }
-                className="inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-border bg-background px-3 py-2 text-sm font-medium hover:bg-secondary sm:w-auto"
-              >
-                <Plus className="h-3.5 w-3.5" /> Add variant
-              </button>
+        <div className="sm:col-span-2 rounded-2xl border border-border/60 bg-secondary/10 p-4">
+          <div className="mb-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+            <div>
+              <h4 className="font-medium">Variants</h4>
+              <p className="text-xs text-muted-foreground">
+                Add each purchasable size and color combination.
+              </p>
             </div>
-            <div className="space-y-2">
-              {variants.map((variant, index) => (
-                <div
-                  key={variant.id}
-                  className="grid min-w-0 items-start gap-3 rounded-xl border border-border/50 bg-background p-3 sm:grid-cols-2"
-                >
-                  <Field label="Size (EN)">
-                    <input
-                      value={variant.size ?? ""}
-                      onChange={(event) => updateVariant(index, { size: event.target.value })}
-                      onBlur={() => translateVariantOption(index, "size")}
-                      placeholder="Size (optional)"
-                      aria-label={`Variant ${index + 1} size`}
-                      className={inputClass}
-                    />
-                  </Field>
-                  <Field label="Color (EN)">
-                    <input
-                      value={variant.color ?? ""}
-                      onChange={(event) => updateVariant(index, { color: event.target.value })}
-                      onBlur={() => translateVariantOption(index, "color")}
-                      placeholder="Color (optional)"
-                      aria-label={`Variant ${index + 1} color`}
-                      className={inputClass}
-                    />
-                  </Field>
-                  <Field label="Size (AR)">
-                    <input
-                      value={variant.size_ar ?? ""}
-                      onChange={(event) => updateVariant(index, { size_ar: event.target.value })}
-                      placeholder="Arabic size"
-                      aria-label={`Variant ${index + 1} Arabic size`}
-                      lang="ar"
-                      dir="rtl"
-                      className={inputClass}
-                    />
-                  </Field>
-                  <Field label="Color (AR)">
-                    <input
-                      value={variant.color_ar ?? ""}
-                      onChange={(event) => updateVariant(index, { color_ar: event.target.value })}
-                      placeholder="Arabic color"
-                      aria-label={`Variant ${index + 1} Arabic color`}
-                      lang="ar"
-                      dir="rtl"
-                      className={inputClass}
-                    />
-                  </Field>
-                  <div className="flex items-center justify-between gap-3 sm:col-span-2">
-                    <label className="flex min-h-11 items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={variant.available}
-                        onChange={(event) =>
-                          updateVariant(index, { available: event.target.checked })
-                        }
-                        className="h-4 w-4 accent-primary"
-                      />
-                      Available
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setVariants((current) =>
-                          current.filter((_, itemIndex) => itemIndex !== index),
-                        )
-                      }
-                      className="grid h-11 w-11 place-items-center justify-self-end rounded-lg text-destructive hover:bg-destructive/10"
-                      aria-label={`Remove variant ${index + 1}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {variants.length === 0 && (
-                <p className="rounded-xl border border-dashed border-border p-5 text-center text-xs text-muted-foreground">
-                  No variants. Add one if this product has selectable options.
-                </p>
-              )}
-            </div>
+            <button
+              type="button"
+              onClick={() =>
+                setVariants((current) => [
+                  ...current,
+                  {
+                    id: crypto.randomUUID(),
+                    size: "",
+                    color: "",
+                    size_ar: "",
+                    color_ar: "",
+                    available: true,
+                  },
+                ])
+              }
+              className="inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-border bg-background px-3 py-2 text-sm font-medium hover:bg-secondary sm:w-auto"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add variant
+            </button>
           </div>
-        )}
+          <div className="space-y-2">
+            {variants.map((variant, index) => (
+              <div
+                key={variant.id}
+                className="grid min-w-0 items-start gap-3 rounded-xl border border-border/50 bg-background p-3 sm:grid-cols-2"
+              >
+                <Field label="Size (EN)">
+                  <input
+                    value={variant.size ?? ""}
+                    onChange={(event) => updateVariant(index, { size: event.target.value })}
+                    onBlur={() => translateVariantOption(index, "size")}
+                    placeholder="Size (optional)"
+                    aria-label={`Variant ${index + 1} size`}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Color (EN)">
+                  <input
+                    value={variant.color ?? ""}
+                    onChange={(event) => updateVariant(index, { color: event.target.value })}
+                    onBlur={() => translateVariantOption(index, "color")}
+                    placeholder="Color (optional)"
+                    aria-label={`Variant ${index + 1} color`}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Size (AR)">
+                  <input
+                    value={variant.size_ar ?? ""}
+                    onChange={(event) => updateVariant(index, { size_ar: event.target.value })}
+                    placeholder="Arabic size"
+                    aria-label={`Variant ${index + 1} Arabic size`}
+                    lang="ar"
+                    dir="rtl"
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Color (AR)">
+                  <input
+                    value={variant.color_ar ?? ""}
+                    onChange={(event) => updateVariant(index, { color_ar: event.target.value })}
+                    placeholder="Arabic color"
+                    aria-label={`Variant ${index + 1} Arabic color`}
+                    lang="ar"
+                    dir="rtl"
+                    className={inputClass}
+                  />
+                </Field>
+                <div className="flex items-center justify-between gap-3 sm:col-span-2">
+                  <label className="flex min-h-11 items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={variant.available}
+                      onChange={(event) =>
+                        updateVariant(index, { available: event.target.checked })
+                      }
+                      className="h-4 w-4 accent-primary"
+                    />
+                    Available
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setVariants((current) =>
+                        current.filter((_, itemIndex) => itemIndex !== index),
+                      )
+                    }
+                    className="grid h-11 w-11 place-items-center justify-self-end rounded-lg text-destructive hover:bg-destructive/10"
+                    aria-label={`Remove variant ${index + 1}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+            {variants.length === 0 && (
+              <p className="rounded-xl border border-dashed border-border p-5 text-center text-xs text-muted-foreground">
+                No variants. Add one if this product has selectable options.
+              </p>
+            )}
+          </div>
+        </div>
 
         <div className="sm:col-span-2 grid gap-3 sm:grid-cols-2">
           <CheckboxCard

@@ -91,6 +91,33 @@
   }
 }
 
+@layer components {
+  /* Hidden actions must never intercept taps or receive keyboard focus. */
+  .product-card-actions {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Card actions are available only on desktop devices with a mouse. */
+  @media (min-width: 768px) and (hover: hover) and (pointer: fine) {
+    .product-card-quick-actions {
+      transform: translateX(-0.5rem);
+    }
+
+    .product-card-cart-action {
+      transform: translateY(0.5rem);
+    }
+
+    .group:is(:hover, :focus-within) .product-card-actions {
+      visibility: visible;
+      opacity: 1;
+      pointer-events: auto;
+      transform: translate(0);
+    }
+  }
+}
+
 @utility glass {
   background: color-mix(in oklab, white 70%, transparent);
   backdrop-filter: blur(20px) saturate(180%);

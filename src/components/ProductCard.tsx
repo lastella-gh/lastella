@@ -70,7 +70,7 @@ export function ProductCard({ product }: { product: Product }) {
             )}
           </div>
           {/* Quick actions */}
-          <div className="absolute top-3 end-3 flex flex-col gap-2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
+          <div className="product-card-actions product-card-quick-actions absolute top-3 end-3 flex flex-col gap-2 transition-all duration-300">
             <button
               onClick={(e) => {
                 e.preventDefault();
@@ -90,7 +90,7 @@ export function ProductCard({ product }: { product: Product }) {
             </button>
           </div>
           {/* Add to cart overlay */}
-          <div className="absolute inset-x-3 bottom-3 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
+          <div className="product-card-actions product-card-cart-action absolute inset-x-3 bottom-3 transition-all duration-300">
             <button
               onClick={(e) => {
                 e.preventDefault();

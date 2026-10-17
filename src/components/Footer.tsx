@@ -3,6 +3,7 @@ import { Instagram, Facebook, Twitter, Youtube, Mail } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { formatNumber } from "@/lib/currency";
 import { Logo } from "./Logo";
+import { BusinessContactDetails } from "./BusinessContactDetails";
 
 export function Footer() {
   const { t, lang } = useI18n();
@@ -102,6 +103,7 @@ export function Footer() {
               </Link>
             </li>
           </ul>
+          <BusinessContactDetails compact className="mt-6 border-t border-border pt-6" />
         </div>
 
         <div className="min-w-0">

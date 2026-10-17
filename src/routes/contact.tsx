@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Mail, Phone, MapPin, MessageCircle, Clock } from "lucide-react";
+import { Mail, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/lib/i18n";
-import { formatDigits } from "@/lib/currency";
+import { BusinessContactDetails } from "@/components/BusinessContactDetails";
 
 export const Route = createFileRoute("/contact")({
   head: () => ({
@@ -68,20 +68,14 @@ function Contact() {
         </form>
 
         <div className="space-y-6">
+          <BusinessContactDetails />
           {[
             {
               Icon: MapPin,
               title: lang === "ar" ? "الفرع الرئيسي" : "Flagship Store",
               text: "The Dubai Mall, Fashion Ave · Level 2",
             },
-            { Icon: Phone, title: lang === "ar" ? "الهاتف" : "Phone", text: "+971 4 000 0000" },
             { Icon: Mail, title: "Email", text: "care@lastella.com" },
-            { Icon: MessageCircle, title: "WhatsApp", text: "+971 50 000 0000" },
-            {
-              Icon: Clock,
-              title: lang === "ar" ? "ساعات العمل" : "Hours",
-              text: "Mon–Sun · 10:00–22:00",
-            },
           ].map(({ Icon, title, text }, i) => (
             <div
               key={i}
@@ -94,9 +88,7 @@ function Contact() {
                 <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">
                   {title}
                 </p>
-                <p className="font-display text-lg">
-                  {lang === "ar" && title === "ساعات العمل" ? formatDigits(text, lang) : text}
-                </p>
+                <p className="font-display text-lg">{text}</p>
               </div>
             </div>
           ))}

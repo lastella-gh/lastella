@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Sparkles, Heart, Award } from "lucide-react";
 import hero from "@/assets/hero-3.jpg";
 import { useI18n } from "@/lib/i18n";
+import { BusinessContactDetails } from "@/components/BusinessContactDetails";
 
 export const Route = createFileRoute("/about")({
   head: () => ({
@@ -19,7 +20,7 @@ export const Route = createFileRoute("/about")({
 });
 
 function About() {
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
   return (
     <div>
       <section className="relative h-[60vh] min-h-[420px] overflow-hidden">
@@ -72,6 +73,10 @@ function About() {
             <p className="text-muted-foreground">{text}</p>
           </div>
         ))}
+      </section>
+      <section className="mx-auto max-w-6xl px-4 pb-24">
+        <h2 className="mb-8 text-center font-display text-3xl sm:text-4xl">{t("nav.contact")}</h2>
+        <BusinessContactDetails className="md:grid-cols-3" />
       </section>
     </div>
   );

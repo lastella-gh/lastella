@@ -75,8 +75,13 @@ function Contact() {
               title: lang === "ar" ? "الفرع الرئيسي" : "Flagship Store",
               text: "The Dubai Mall, Fashion Ave · Level 2",
             },
-            { Icon: Mail, title: "Email", text: "care@lastella.com" },
-          ].map(({ Icon, title, text }, i) => (
+            {
+              Icon: Mail,
+              title: lang === "ar" ? "البريد الإلكتروني" : "Email",
+              text: "Info@lastellajewellery.com",
+              href: "mailto:Info@lastellajewellery.com",
+            },
+          ].map(({ Icon, title, text, href }, i) => (
             <div
               key={i}
               className="flex gap-4 items-start p-6 rounded-3xl border border-border hover:border-primary transition-all"
@@ -88,7 +93,19 @@ function Contact() {
                 <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">
                   {title}
                 </p>
-                <p className="font-display text-lg">{text}</p>
+                <p className="font-display text-lg">
+                  {href ? (
+                    <a
+                      href={href}
+                      dir="ltr"
+                      className="inline-block rounded-sm [overflow-wrap:anywhere] hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+                    >
+                      {text}
+                    </a>
+                  ) : (
+                    text
+                  )}
+                </p>
               </div>
             </div>
           ))}

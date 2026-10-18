@@ -17,36 +17,47 @@ export function Categories() {
     { key: "cat.earrings", category: "earrings", img: ce },
   ] as const;
   return (
-    <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20">
-      <div className="text-center mb-12">
+    <section
+      aria-labelledby="categories-heading"
+      className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8"
+    >
+      <div className="mb-9 text-center sm:mb-12">
         <p className="text-xs uppercase tracking-[0.35em] text-primary font-medium mb-3">
           {t("section.categories.eyebrow")}
         </p>
-        <h2 className="font-display text-4xl sm:text-5xl">{t("section.categories.title")}</h2>
+        <h2 id="categories-heading" className="font-display text-4xl sm:text-5xl">
+          {t("section.categories.title")}
+        </h2>
       </div>
-      <div className="flex gap-4 sm:gap-6 lg:gap-8 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-4 lg:justify-center lg:flex-wrap lg:overflow-visible">
+      <ul className="flex flex-wrap items-start justify-center gap-x-4 gap-y-7 sm:gap-x-6 sm:gap-y-9 lg:flex-nowrap">
         {cats.map((c) => (
-          <Link
+          <li
             key={c.key}
-            to="/shop"
-            search={{ category: c.category }}
-            className="group snap-center shrink-0 flex flex-col items-center text-center"
+            className="w-[calc((100%_-_3rem)/4)] min-w-0 sm:w-[calc((100%_-_4.5rem)/4)] lg:w-auto lg:flex-1"
           >
-            <div className="relative overflow-hidden rounded-full h-32 w-32 sm:h-40 sm:w-40 lg:h-44 lg:w-44 bg-secondary ring-1 ring-border transition-all group-hover:ring-primary group-hover:ring-4 group-hover:ring-offset-4 group-hover:ring-offset-background">
-              <img
-                src={c.img}
-                alt=""
-                loading="lazy"
-                className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-primary/10 to-transparent" />
-            </div>
-            <p className="mt-4 font-display text-lg group-hover:text-primary transition-colors">
-              {t(c.key as never)}
-            </p>
-          </Link>
+            <Link
+              to="/shop"
+              search={{ category: c.category }}
+              className="group flex min-w-0 flex-col items-center rounded-xl text-center focus-visible:outline-2 focus-visible:outline-offset-8 focus-visible:outline-primary"
+            >
+              <div className="relative aspect-square w-full max-w-40 overflow-hidden rounded-full border border-primary/10 bg-secondary/30 transition-[transform,box-shadow,border-color] duration-300 group-hover:-translate-y-1 group-hover:border-primary/30 group-hover:shadow-soft motion-reduce:transform-none">
+                <img
+                  src={c.img}
+                  alt=""
+                  width={640}
+                  height={640}
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 motion-reduce:transform-none"
+                />
+              </div>
+              <span className="mt-3 max-w-full break-words font-display text-sm leading-snug transition-colors group-hover:text-primary sm:mt-4 sm:text-lg">
+                {t(c.key)}
+              </span>
+            </Link>
+          </li>
         ))}
-      </div>
+      </ul>
     </section>
   );
 }

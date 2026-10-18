@@ -26,7 +26,7 @@ export function BusinessContactDetails({
   ];
 
   return (
-    <dl className={cn(compact ? "space-y-4" : "grid gap-6", className)}>
+    <dl className={cn("grid", compact ? "gap-4" : "gap-6", className)}>
       {details.map(({ Icon, title, text, href }) => (
         <div
           key={title}
@@ -43,7 +43,7 @@ export function BusinessContactDetails({
           >
             <Icon className={compact ? "h-4 w-4" : "h-5 w-5"} aria-hidden="true" />
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <dt
               className={cn(
                 "mb-1 text-muted-foreground",
@@ -52,12 +52,17 @@ export function BusinessContactDetails({
             >
               {title}
             </dt>
-            <dd className={compact ? "text-sm" : "font-display text-lg"}>
+            <dd
+              className={cn(
+                "leading-relaxed [overflow-wrap:anywhere]",
+                compact ? "text-sm" : "font-display text-lg",
+              )}
+            >
               {href ? (
                 <a
                   href={href}
                   dir="ltr"
-                  className="inline-block rounded-sm hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+                  className="inline-block max-w-full rounded-sm hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
                   target={href === whatsappLink ? "_blank" : undefined}
                   rel={href === whatsappLink ? "noopener noreferrer" : undefined}
                 >

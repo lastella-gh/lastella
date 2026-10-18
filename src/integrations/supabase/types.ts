@@ -4,7 +4,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5";
+    PostgrestVersion: "14.15";
   };
   public: {
     Tables: {
@@ -551,7 +551,15 @@ export type Database = {
       payment_status:
         "awaiting_payment" | "proof_submitted" | "payment_verified" | "payment_rejected";
       product_category:
-        "necklace" | "bracelet" | "ring" | "earrings" | "pendant" | "watch" | "bangle" | "anklet";
+        | "necklace"
+        | "bracelet"
+        | "ring"
+        | "earrings"
+        | "pendant"
+        | "watch"
+        | "bangle"
+        | "anklet"
+        | "handcuff";
       product_kind: "jewelry" | "ring_box" | "general_box";
     };
     CompositeTypes: {
@@ -699,6 +707,7 @@ export const Constants = {
         "watch",
         "bangle",
         "anklet",
+        "handcuff",
       ],
       product_kind: ["jewelry", "ring_box", "general_box"],
     },

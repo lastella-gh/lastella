@@ -18,6 +18,22 @@ export function shuffleProducts<T>(products: readonly T[], seed: number): T[] {
   return shuffled;
 }
 
+export function getCategoryRecommendations(
+  products: readonly Product[],
+  currentProduct: Product,
+  seed: number,
+): Product[] {
+  return shuffleProducts(
+    products.filter(
+      (candidate) =>
+        candidate.id !== currentProduct.id &&
+        candidate.kind === currentProduct.kind &&
+        candidate.category === currentProduct.category,
+    ),
+    seed,
+  ).slice(0, 4);
+}
+
 function normalizeSearch(value: string): string {
   return value
     .normalize("NFKD")

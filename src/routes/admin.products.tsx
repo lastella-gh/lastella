@@ -8,6 +8,7 @@ import type { Enums, Tables, TablesInsert, TablesUpdate } from "@/integrations/s
 import { formatPrice } from "@/lib/currency";
 import { translateToArabic, useArabicTranslation } from "@/hooks/use-arabic-translation";
 import { getKnownArabicVariantLabel, type VariantOptionKind } from "@/lib/variant-labels";
+import { filterAdminProducts, getProductKindLabel } from "@/lib/admin-product-listing";
 
 export const Route = createFileRoute("/admin/products")({
   component: AdminProducts,
@@ -28,8 +29,7 @@ type VariantDraft = Pick<
 
 const KINDS: { value: ProductKind; label: string }[] = [
   { value: "jewelry", label: "Jewelry" },
-  { value: "ring_box", label: "Ring box" },
-  { value: "general_box", label: "General box" },
+  { value: "general_box", label: "Jewelery Box" },
 ];
 const CATEGORIES: ProductCategory[] = [
   "necklace",
@@ -39,6 +39,7 @@ const CATEGORIES: ProductCategory[] = [
   "pendant",
   "watch",
   "bangle",
+  "handcuff",
   "anklet",
 ];
 
@@ -46,6 +47,8 @@ function AdminProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [brandFilter, setBrandFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Product | null>(null);
   const [creating, setCreating] = useState(false);
@@ -117,16 +120,12 @@ function AdminProducts() {
   }
 
   const query = search.trim().toLowerCase();
-  const filteredProducts = products.filter(
-    (product) =>
-      !query ||
-      product.name_en.toLowerCase().includes(query) ||
-      product.name_ar?.toLowerCase().includes(query) ||
-      product.slug.toLowerCase().includes(query) ||
-      product.brand?.name.toLowerCase().includes(query) ||
-      product.kind.replace("_", " ").includes(query) ||
-      product.category?.includes(query),
-  );
+  const hasFilters = Boolean(query) || typeFilter !== "all" || brandFilter !== "all";
+  const filteredProducts = filterAdminProducts(products, {
+    search,
+    type: typeFilter,
+    brandId: brandFilter,
+  });
 
   function renderActions(product: Product) {
     return (
@@ -169,7 +168,7 @@ function AdminProducts() {
         </button>
       </div>
 
-      <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
+      <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
         <div className="relative w-full min-w-0 sm:max-w-md sm:flex-1">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -188,7 +187,55 @@ function AdminProducts() {
             </button>
           )}
         </div>
-        {search && (
+        <select
+          aria-label="Filter by product type"
+          value={typeFilter}
+          onChange={(event) => setTypeFilter(event.target.value)}
+          className="min-w-0 rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
+        >
+          <option value="all">All types</option>
+          {KINDS.map((kind) => (
+            <option key={kind.value} value={kind.value}>
+              {kind.label}
+            </option>
+          ))}
+          <optgroup label="Jewelry categories">
+            {CATEGORIES.map((category) => (
+              <option key={category} value={`category:${category}`}>
+                {category === "handcuff"
+                  ? "Handcuffs"
+                  : category.charAt(0).toUpperCase() + category.slice(1)}
+              </option>
+            ))}
+          </optgroup>
+        </select>
+        <select
+          aria-label="Filter by brand"
+          value={brandFilter}
+          onChange={(event) => setBrandFilter(event.target.value)}
+          className="min-w-0 rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
+        >
+          <option value="all">All brands</option>
+          {brands.map((brand) => (
+            <option key={brand.id} value={brand.id}>
+              {brand.name}
+              {brand.visible ? "" : " (hidden)"}
+            </option>
+          ))}
+        </select>
+        {hasFilters && (
+          <button
+            onClick={() => {
+              setSearch("");
+              setTypeFilter("all");
+              setBrandFilter("all");
+            }}
+            className="rounded-xl px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
+          >
+            Reset filters
+          </button>
+        )}
+        {hasFilters && (
           <span className="text-xs text-muted-foreground">
             {filteredProducts.length} {filteredProducts.length === 1 ? "result" : "results"}
           </span>
@@ -200,7 +247,7 @@ function AdminProducts() {
           <div className="p-10 text-center text-muted-foreground">Loading...</div>
         ) : filteredProducts.length === 0 ? (
           <div className="p-6 text-center text-sm text-muted-foreground">
-            {search ? `No products matching "${search}"` : "No products yet."}
+            {hasFilters ? "No products match the current search and filters." : "No products yet."}
           </div>
         ) : (
           <>
@@ -236,7 +283,7 @@ function AdminProducts() {
                     <div className="min-w-0">
                       <dt className="text-xs text-muted-foreground">Type</dt>
                       <dd className="mt-1 capitalize">
-                        {product.kind.replace("_", " ")}
+                        {getProductKindLabel(product.kind)}
                         {product.category ? ` · ${product.category}` : ""}
                       </dd>
                     </div>
@@ -317,7 +364,7 @@ function AdminProducts() {
                       </td>
                       <td className="p-4">{product.brand?.name ?? "Unknown"}</td>
                       <td className="p-4 capitalize">
-                        <p>{product.kind.replace("_", " ")}</p>
+                        <p>{getProductKindLabel(product.kind)}</p>
                         {product.category && (
                           <p className="text-xs text-muted-foreground">{product.category}</p>
                         )}
@@ -395,7 +442,9 @@ function ProductForm({
   );
   const [slug, setSlug] = useState(initial?.slug ?? "");
   const [slugEdited, setSlugEdited] = useState(Boolean(initial));
-  const [kind, setKind] = useState<ProductKind>(initial?.kind ?? "jewelry");
+  const [kind, setKind] = useState<ProductKind>(
+    initial?.kind === "ring_box" ? "general_box" : (initial?.kind ?? "jewelry"),
+  );
   const [available, setAvailable] = useState(initial?.available ?? true);
   const [visible, setVisible] = useState(initial?.visible ?? true);
   const [variants, setVariants] = useState<VariantDraft[]>(initial?.variants ?? []);

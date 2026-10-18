@@ -27,6 +27,7 @@ export function Header() {
     { label: t("nav.necklaces"), search: { category: "necklace" as const } },
     { label: t("nav.bracelets"), search: { category: "bracelet" as const } },
     { label: t("nav.bangles"), search: { category: "bangle" as const } },
+    { label: t("nav.handcuffs"), search: { category: "handcuff" as const } },
     { label: t("nav.anklets"), search: { category: "anklet" as const } },
     { label: t("nav.rings"), search: { category: "ring" as const } },
     { label: t("nav.brandBoxes"), search: { collection: "brand-boxes" as const } },

@@ -63,11 +63,11 @@ const products = [...grouped].map(([key, images]) => {
   const isRing = kind === "ring_box";
   return {
     slug: `${brandSlug}-${isRing ? "ring-box" : "general-box"}`,
-    name_en: `${brandName} ${isRing ? "Ring Box" : "General Gift Box"}`,
-    name_ar: null,
-    description_en: `${brandName} branded ${isRing ? "ring" : "general jewelry"} packaging set.`,
+    name_en: `${brandName} Jewelery Box`,
+    name_ar: `${brandName} - صندوق مجوهرات`,
+    description_en: `${brandName} branded jewelry packaging set.`,
     category: null,
-    kind,
+    kind: "general_box",
     brand_id: brandIds.get(brandSlug),
     price: 1.1,
     old_price: null,

@@ -14,13 +14,19 @@ import {
   X,
   ZoomIn,
 } from "lucide-react";
-import { useEffect, useRef, useState, type MouseEvent, type TouchEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type TouchEvent } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { ProductCard } from "@/components/ProductCard";
 import { formatNumber, formatPrice } from "@/lib/currency";
 import { useI18n } from "@/lib/i18n";
-import { getLocalizedProductName, getPublicProductBySlug, useProducts } from "@/lib/products";
+import {
+  getLocalizedProductName,
+  getPublicProductBySlug,
+  useAllBoxProducts,
+  useProducts,
+} from "@/lib/products";
+import { getCategoryRecommendations, shuffleProducts } from "@/lib/product-listing";
 import { useStore } from "@/lib/store";
 import { getVariantOptionLabel } from "@/lib/variant-labels";
 
@@ -97,6 +103,45 @@ function ProductPage() {
   const viewerImageRef = useRef<HTMLImageElement>(null);
   const imageGestureRef = useRef<ImageGesture | null>(null);
   const { data: jewelry = [] } = useProducts();
+  const { data: boxes = [] } = useAllBoxProducts(product.kind !== "jewelry");
+  const [recommendationSeed, setRecommendationSeed] = useState<number | null>(null);
+
+  useEffect(() => {
+    setRecommendationSeed(Math.floor(Math.random() * 4294967296));
+  }, []);
+
+  const related = useMemo(
+    () =>
+      recommendationSeed === null
+        ? []
+        : getCategoryRecommendations(
+            product.kind === "jewelry" ? jewelry : boxes,
+            product,
+            recommendationSeed,
+          ),
+    [jewelry, boxes, product, recommendationSeed],
+  );
+  const matchingRings = useMemo(
+    () =>
+      product.kind === "jewelry" &&
+      product.category !== "ring" &&
+      (product.category === "bangle" || selectedColor) &&
+      recommendationSeed !== null
+        ? shuffleProducts(
+            jewelry.filter(
+              (candidate) =>
+                candidate.category === "ring" &&
+                candidate.available &&
+                (product.category === "bangle" ||
+                  candidate.variants.some(
+                    (variant) => variant.available && variant.color === selectedColor,
+                  )),
+            ),
+            recommendationSeed,
+          ).slice(0, 4)
+        : [],
+    [jewelry, product.kind, product.category, selectedColor, recommendationSeed],
+  );
 
   useEffect(() => {
     if (!imageOpen) return;
@@ -134,22 +179,6 @@ function ProductPage() {
   const purchasable =
     product.available &&
     (product.variants.length === 0 || (selectionComplete && Boolean(selectedVariant?.available)));
-  const matchingRings =
-    product.kind === "jewelry" && product.category !== "ring" && selectedColor
-      ? jewelry
-          .filter(
-            (candidate) =>
-              candidate.category === "ring" &&
-              candidate.available &&
-              candidate.variants.some(
-                (variant) => variant.available && variant.color === selectedColor,
-              ),
-          )
-          .slice(0, 4)
-      : [];
-  const related = jewelry
-    .filter((candidate) => candidate.category === product.category && candidate.id !== product.id)
-    .slice(0, 4);
   const gallery = [...new Set([product.image, ...product.images])];
   const activeImageIndex = Math.max(0, gallery.indexOf(activeImage));
 
@@ -316,17 +345,11 @@ function ProductPage() {
   }
 
   const categoryLabel =
-    product.kind === "ring_box"
-      ? lang === "ar"
-        ? "صندوق خاتم"
-        : "Ring Box"
-      : product.kind === "general_box"
-        ? lang === "ar"
-          ? "صندوق هدايا"
-          : "General Gift Box"
-        : product.category
-          ? t(`cat.${product.category}` as never)
-          : "";
+    product.kind !== "jewelry"
+      ? t("product.jeweleryBox")
+      : product.category
+        ? t(`cat.${product.category}` as never)
+        : "";
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -552,11 +575,17 @@ function ProductPage() {
           <div className="mb-6 flex items-center gap-3">
             <Sparkles className="h-5 w-5 text-primary" />
             <h2 className="font-display text-3xl">
-              {t("product.ringsIn")}{" "}
-              {lang === "ar"
-                ? product.variants.find((variant) => variant.color === selectedColor)?.color_ar ||
-                  selectedColor
-                : selectedColor}
+              {product.category === "bangle" ? (
+                t("product.pairWithRings")
+              ) : (
+                <>
+                  {t("product.ringsIn")}{" "}
+                  {lang === "ar"
+                    ? product.variants.find((variant) => variant.color === selectedColor)
+                        ?.color_ar || selectedColor
+                    : selectedColor}
+                </>
+              )}
             </h2>
           </div>
           <div className="grid grid-cols-2 gap-6 md:grid-cols-4">

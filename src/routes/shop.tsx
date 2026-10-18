@@ -11,7 +11,17 @@ import { z } from "zod";
 export const Route = createFileRoute("/shop")({
   validateSearch: z.object({
     category: z
-      .enum(["necklace", "bracelet", "bangle", "anklet", "ring", "earrings", "pendant", "watch"])
+      .enum([
+        "necklace",
+        "bracelet",
+        "bangle",
+        "handcuff",
+        "anklet",
+        "ring",
+        "earrings",
+        "pendant",
+        "watch",
+      ])
       .optional(),
     collection: z.enum(["new-arrivals", "best-sellers", "brand-boxes"]).optional(),
   }),
@@ -38,6 +48,7 @@ const cats = [
   "necklace",
   "bracelet",
   "bangle",
+  "handcuff",
   "anklet",
   "ring",
   "earrings",
@@ -93,9 +104,7 @@ function Shop() {
         (cat === "all" || p.category === cat) &&
         (search.collection !== "new-arrivals" || p.isNewArrival) &&
         (search.collection !== "best-sellers" || p.isBestSeller) &&
-        (search.collection !== "brand-boxes" ||
-          p.kind === "ring_box" ||
-          p.kind === "general_box") &&
+        (search.collection !== "brand-boxes" || p.kind === "general_box") &&
         (brand === "all" || p.brand?.slug === brand) &&
         matchesProductSearch(p, query, getLocalizedProductName(p, "ar")),
     );

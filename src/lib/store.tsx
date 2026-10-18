@@ -12,7 +12,15 @@ export interface ProductVariant {
 }
 
 export type ProductCategory =
-  "necklace" | "bracelet" | "bangle" | "anklet" | "ring" | "earrings" | "pendant" | "watch";
+  | "necklace"
+  | "bracelet"
+  | "bangle"
+  | "handcuff"
+  | "anklet"
+  | "ring"
+  | "earrings"
+  | "pendant"
+  | "watch";
 
 export interface Product {
   id: string;

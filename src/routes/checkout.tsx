@@ -11,7 +11,7 @@ import {
 import { formatNumber, formatNumericLabel, formatPrice } from "@/lib/currency";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
-import { useBoxProducts } from "@/lib/products";
+import { useAllBoxProducts } from "@/lib/products";
 import { useStoreSettings } from "@/lib/settings";
 import { isCartItemPurchasable, useStore, type Product } from "@/lib/store";
 import { getLocalizedProductName } from "@/lib/products";
@@ -25,29 +25,18 @@ export const Route = createFileRoute("/checkout")({
 type DeliveryType = "home" | "office";
 
 function Checkout() {
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { cart, cartTotal, clearCart } = useStore();
   const { data: settings } = useStoreSettings();
-  const { data: ringBoxes = [] } = useBoxProducts("ring_box");
-  const { data: generalBoxes = [] } = useBoxProducts("general_box");
+  const { data: boxes = [] } = useAllBoxProducts();
   const [deliveryType, setDeliveryType] = useState<DeliveryType | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [proof, setProof] = useState<{ intentId: string; claimToken: string; name: string } | null>(
     null,
   );
   const [proofState, setProofState] = useState("No payment proof selected");
-  const jewelry = cart.filter((item) => item.product.kind === "jewelry");
-  const hasRings = jewelry.some((item) => item.product.category === "ring");
-  const hasOtherJewelry = jewelry.some((item) => item.product.category !== "ring");
-  const cartProductIds = new Set(cart.map((item) => item.product.id));
-  const suggestedRingBoxes = ringBoxes.filter(
-    (product) => product.available && !cartProductIds.has(product.id),
-  );
-  const suggestedGeneralBoxes = generalBoxes.filter(
-    (product) => product.available && !cartProductIds.has(product.id),
-  );
   const shippingBaisa = deliveryType ? deliveryFeeBaisa(deliveryType) : 0;
   const total = fromBaisa(toBaisa(cartTotal) + shippingBaisa);
   const cartItemsNeedingOptions = cart.filter((item) => !isCartItemPurchasable(item));
@@ -185,15 +174,8 @@ function Checkout() {
             />
           </Section>
 
-          {hasRings && suggestedRingBoxes.length > 0 && (
-            <BoxSuggestions title="Ring Boxes" products={suggestedRingBoxes} language={lang} />
-          )}
-          {hasOtherJewelry && suggestedGeneralBoxes.length > 0 && (
-            <BoxSuggestions
-              title="General Gift Boxes"
-              products={suggestedGeneralBoxes}
-              language={lang}
-            />
+          {boxes.length > 0 && (
+            <BoxSuggestions title={t("checkout.jeweleryBoxes")} products={boxes} language={lang} />
           )}
 
           <Section title={lang === "ar" ? "طريقة الدفع" : "Payment Method"}>
@@ -440,15 +422,23 @@ function BoxSuggestions({
                 className="aspect-square w-full object-cover"
               />
               <div className="p-3">
-                <p className="truncate text-sm font-medium">{product.brand?.name}</p>
+                <p className="text-sm font-medium">{getLocalizedProductName(product, language)}</p>
                 <p className="mt-1 text-xs text-primary">{formatPrice(product.price, language)}</p>
+                {!product.available && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {language === "ar" ? "غير متوفر حاليًا" : "Currently unavailable"}
+                  </p>
+                )}
               </div>
             </Link>
           ))}
         </div>
       </div>
       <p className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Gift className="h-4 w-4" /> Select a box to view its product page.
+        <Gift className="h-4 w-4" />
+        {language === "ar"
+          ? "اختاري صندوقًا لعرض تفاصيله."
+          : "Select a box to view its product page."}
       </p>
     </Section>
   );

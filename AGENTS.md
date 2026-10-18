@@ -48,6 +48,6 @@
 ## Business Invariants
 
 - Currency is OMR with three decimal places. `src/lib/currency.tsx` renders the official Omani vector mark because its Unicode character is not yet broadly supported; do not replace it with the generic rial glyph.
-- New products default to OMR 1.100 but admin prices remain editable. Jewelry categories are necklace, bracelet, ring, earrings, pendant, and watch; boxes use `ring_box` or `general_box` product kinds and no jewelry category.
+- New products default to OMR 1.100 but admin prices remain editable. Jewelry categories are necklace, bracelet, bangle, handcuff, anklet, ring, earrings, pendant, and watch. All boxes use the `general_box` kind, displayed as "Jewelery Box", with no jewelry category. The legacy `ring_box` enum value remains for historical orders; new products cannot use it.
 - Home Delivery is always OMR 2.000, Office Delivery is always OMR 1.000, and new orders have zero tax. Bank transfer is the only new-order payment method and new orders begin `awaiting_payment`. Keep previews and authoritative `src/lib/checkout.server.ts` calculations aligned.
 - Application-owned localStorage keys are only `lastella-cart`, `lastella-wishlist`, and `lastella-lang`; Supabase Auth separately persists its managed session. Supabase owns products, brands, variants, users, roles, orders, settings, and images.

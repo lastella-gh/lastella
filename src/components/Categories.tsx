@@ -11,6 +11,7 @@ export function Categories() {
     { key: "cat.necklace", category: "necklace", img: cn },
     { key: "cat.bracelet", category: "bracelet", img: cb },
     { key: "cat.bangle", category: "bangle", img: cb },
+    { key: "cat.handcuff", category: "handcuff", img: cb },
     { key: "cat.anklet", category: "anklet", img: cb },
     { key: "cat.ring", category: "ring", img: cr },
     { key: "cat.earrings", category: "earrings", img: ce },

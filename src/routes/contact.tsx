@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Mail, MapPin } from "lucide-react";
+import { Mail } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/lib/i18n";
 import { BusinessContactDetails } from "@/components/BusinessContactDetails";
@@ -70,11 +70,6 @@ function Contact() {
         <div className="space-y-6">
           <BusinessContactDetails />
           {[
-            {
-              Icon: MapPin,
-              title: lang === "ar" ? "الفرع الرئيسي" : "Flagship Store",
-              text: "The Dubai Mall, Fashion Ave · Level 2",
-            },
             {
               Icon: Mail,
               title: lang === "ar" ? "البريد الإلكتروني" : "Email",

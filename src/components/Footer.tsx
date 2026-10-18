@@ -60,6 +60,11 @@ export function Footer() {
               </Link>
             </li>
             <li>
+              <Link to="/shop" search={{ category: "handcuff" }} className="hover:text-primary">
+                {t("cat.handcuff")}
+              </Link>
+            </li>
+            <li>
               <Link to="/shop" search={{ category: "anklet" }} className="hover:text-primary">
                 {t("cat.anklet")}
               </Link>

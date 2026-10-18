@@ -57,12 +57,12 @@ export function mapProduct(row: ProductRow): Product {
 export function getLocalizedProductName(product: Product, language: Lang) {
   if (language === "en") return product.name.en;
   if (product.name.ar) return product.name.ar;
-  if (product.kind === "ring_box") return "صندوق خاتم";
-  if (product.kind === "general_box") return "صندوق هدايا";
+  if (product.kind !== "jewelry") return "صندوق مجوهرات";
   const categoryName: Record<NonNullable<Product["category"]>, string> = {
     necklace: "قلادة",
     bracelet: "سوار",
     bangle: "سوار مفتوح",
+    handcuff: "سوار كف",
     anklet: "خلخال",
     ring: "خاتم",
     earrings: "أقراط",
@@ -84,19 +84,12 @@ export function useProducts(kind: ProductKind = "jewelry") {
   });
 }
 
-export function useBoxProducts(kind: "ring_box" | "general_box") {
-  return useProducts(kind);
-}
-
-export function useAllBoxProducts() {
+export function useAllBoxProducts(enabled = true) {
   return useQuery({
     queryKey: ["products", "brand-boxes"],
+    enabled,
     queryFn: async () => {
-      const [ringBoxes, generalBoxes] = await Promise.all([
-        loadProducts("ring_box"),
-        loadProducts("general_box"),
-      ]);
-      return [...ringBoxes, ...generalBoxes]
+      return (await loadProducts("general_box"))
         .map(mapProduct)
         .filter((product) => product.brand?.visible !== false);
     },

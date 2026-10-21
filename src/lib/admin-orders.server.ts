@@ -2,6 +2,7 @@ import "@tanstack/react-start/server-only";
 
 import { requireAdmin } from "@/lib/server-auth.server";
 import type { Enums } from "@/integrations/supabase/types";
+import { sendOrderEmails } from "@/lib/order-email.server";
 
 export type PaymentStatus =
   "awaiting_payment" | "proof_submitted" | "payment_verified" | "payment_rejected";
@@ -117,7 +118,7 @@ export async function reviewAdminPayment(
 
   const { data: order, error: loadError } = await supabase
     .from("orders")
-    .select("payment_proof_path")
+    .select("payment_proof_path, payment_status, payment_rejection_reason")
     .eq("id", orderId)
     .maybeSingle();
   if (loadError) throw new Error(`Failed to load order: ${loadError.message}`);
@@ -126,7 +127,13 @@ export async function reviewAdminPayment(
   const proofPath = order.payment_proof_path;
   if (!proofPath) throw new Error("This historical order has no payment proof to review");
 
-  const { error } = await supabase
+  if (
+    order.payment_status === decision &&
+    (decision === "payment_verified" || order.payment_rejection_reason === reason)
+  )
+    return { success: true };
+
+  const { data: updated, error } = await supabase
     .from("orders")
     .update({
       payment_status: decision,
@@ -134,8 +141,13 @@ export async function reviewAdminPayment(
       payment_reviewed_by: userId,
       payment_reviewed_at: new Date().toISOString(),
     })
-    .eq("id", orderId);
+    .eq("id", orderId)
+    .eq("payment_status", order.payment_status)
+    .select("updated_at")
+    .maybeSingle();
   if (error) throw new Error(`Failed to review payment: ${error.message}`);
+  if (!updated) throw new Error("This payment has changed. Refresh the order and try again.");
+  await sendOrderEmails(orderId, { event: decision, revision: updated.updated_at });
   return { success: true };
 }
 
@@ -150,6 +162,8 @@ export async function updateAdminOrderStatus(orderId: string, status: string) {
   if (loadError) throw new Error(`Failed to load order: ${loadError.message}`);
   if (!order) throw new Error("Order not found");
 
+  if (order.status === status) return { success: true };
+
   if (
     status === "processing" &&
     order.payment_proof_path &&
@@ -158,10 +172,22 @@ export async function updateAdminOrderStatus(orderId: string, status: string) {
     throw new Error("Payment must be verified before this order can be processed");
   }
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("orders")
     .update({ status: status as Enums<"order_status"> })
-    .eq("id", orderId);
+    .eq("id", orderId)
+    .eq("status", order.status)
+    .select("updated_at")
+    .maybeSingle();
   if (error) throw new Error(`Failed to update order status: ${error.message}`);
+  if (!updated) throw new Error("This order has changed. Refresh it and try again.");
+  if (
+    status === "processing" ||
+    status === "shipped" ||
+    status === "delivered" ||
+    status === "cancelled"
+  ) {
+    await sendOrderEmails(orderId, { event: status, revision: updated.updated_at });
+  }
   return { success: true };
 }

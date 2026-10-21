@@ -34,12 +34,13 @@
 - Products are read from `public.products`, brands from `public.brands`, variants from `public.product_variants`, and homepage/bank configuration from singleton `public.store_settings`. Auth state comes from Supabase Auth; admin authorization comes from `public.user_roles`, never an email check in UI code.
 - Product `visible` controls catalog exposure while `available` controls purchasing. Variant availability is manual; legacy `active`, `stock`, `sizes`, and `colors` columns remain only for rollout/history compatibility and must not drive new behavior.
 - Checkout must call the `submitCheckout` TanStack server function. `src/lib/checkout.server.ts` validates visibility, product/variant availability, and database prices, then service-only `public.commit_checkout_order_v2` locks rows and atomically creates the order/items without decrementing stock. Never expose that RPC to browser roles or replace checkout with direct client inserts.
+- Storage migration is pending: existing product/order image URLs still use source project `rhnnhecshxnqybkujuyl`. Keep that project active and preserve those URLs until the files are copied and verified.
 - Product files use the public `product-images` bucket; only admins may list or mutate objects through Storage policies.
 - `src/integrations/supabase/types.ts` is generated. After schema changes run `supabase gen types --linked --lang typescript --schema public > src/integrations/supabase/types.ts`, then format and typecheck it.
 
 ## Database Workflow
 
-- Migrations are imperative and already applied to linked project `rhnnhecshxnqybkujuyl`. Never edit an applied migration; create one with `supabase migration new <name>`.
+- Migrations are imperative and already applied to linked project `wgkbudzediwknmbdxvgy`. Never edit an applied migration; create one with `supabase migration new <name>`.
 - Apply in order: `supabase db push --linked --dry-run`, review, `supabase db push --linked --yes`, regenerate types, then `supabase migration list --linked`.
 - Run remote Supabase CLI commands serially. Concurrent CLI queries/advisors rotate the temporary login role and can cause password failures or a temporary connection circuit breaker.
 - For database work, run both advisors serially: `supabase db advisors --linked --type security --level warn --fail-on none` and the same command with `--type performance`.

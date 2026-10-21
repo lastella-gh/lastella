@@ -73,15 +73,7 @@ export async function createCheckoutOrder(
     .single();
   if (commitError || !order) throw new Error("We could not place your order. Please try again.");
 
-  await sendOrderEmails({
-    order,
-    input,
-    items: commitItems.map((item) => ({
-      name: products.get(item.product_id)?.name_en ?? "Product",
-      quantity: item.quantity,
-      unitPrice: item.unit_price,
-    })),
-  });
+  await sendOrderEmails(order.id, { receiptToken });
   return { ...order, successToken: receiptToken };
 }
 

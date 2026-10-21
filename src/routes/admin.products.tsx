@@ -1122,8 +1122,8 @@ function ProductForm({
           <CheckboxCard
             checked={isBestSeller}
             onChange={setIsBestSeller}
-            title="Best Seller"
-            description="Feature this product as a best seller."
+            title="Combo"
+            description="Show this product in the homepage Combos section."
           />
         </div>
       </div>

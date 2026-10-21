@@ -1,6 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
-import type { FormEventHandler, ReactNode } from "react";
+import { useRef, type FormEventHandler, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 export function AdminFormDialog({
@@ -20,6 +20,8 @@ export function AdminFormDialog({
   footer: ReactNode;
   className?: string;
 }) {
+  const returnPosition = useRef({ left: 0, top: 0, element: null as HTMLElement | null });
+
   return (
     <Dialog.Root
       open
@@ -31,6 +33,21 @@ export function AdminFormDialog({
         <Dialog.Overlay className="fixed inset-0 z-[100] bg-foreground/40 backdrop-blur-sm" />
         <Dialog.Content
           dir="ltr"
+          onOpenAutoFocus={() => {
+            returnPosition.current = {
+              left: window.scrollX,
+              top: window.scrollY,
+              element:
+                document.activeElement instanceof HTMLElement ? document.activeElement : null,
+            };
+          }}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            const { element, left, top } = returnPosition.current;
+            if (element?.isConnected) element.focus({ preventScroll: true });
+            // Ignore the page's smooth scrolling when returning from the mobile form.
+            window.scrollTo({ left, top, behavior: "instant" });
+          }}
           onInteractOutside={(event) => event.preventDefault()}
           className={cn(
             "fixed inset-0 z-[101] flex h-dvh w-full flex-col overflow-hidden border border-border/60 bg-background shadow-2xl sm:inset-auto sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100%-2rem)] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-3xl",

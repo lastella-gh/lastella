@@ -55,8 +55,8 @@ function AdminProducts() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
 
-  async function refresh() {
-    setLoading(true);
+  async function refresh(showLoading = true) {
+    if (showLoading) setLoading(true);
     const [productsResult, brandsResult] = await Promise.all([
       supabase
         .from("products")
@@ -413,10 +413,11 @@ function AdminProducts() {
             setCreating(false);
             setEditing(null);
           }}
-          onSaved={() => {
+          onSaved={async () => {
+            // Keep the catalog mounted until it is refreshed so the page cannot collapse.
+            await refresh(false);
             setCreating(false);
             setEditing(null);
-            void refresh();
           }}
         />
       )}
@@ -433,7 +434,7 @@ function ProductForm({
   initial: Product | null;
   brands: Brand[];
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: () => Promise<void>;
 }) {
   const nameTranslation = useArabicTranslation(initial?.name_en, initial?.name_ar ?? "");
   const descriptionTranslation = useArabicTranslation(
@@ -717,7 +718,7 @@ function ProductForm({
       }
 
       toast.success(initial ? "Product updated" : "Product created");
-      onSaved();
+      await onSaved();
     } catch (error) {
       if (createdProductId) {
         await supabase.from("products").delete().eq("id", createdProductId);

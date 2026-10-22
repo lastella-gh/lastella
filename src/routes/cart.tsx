@@ -1,3 +1,4 @@
+import { ProductImage } from "@/components/ProductImage";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Minus, Plus, Trash2, ShoppingBag } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
@@ -54,7 +55,12 @@ function Cart() {
           {cart.map(({ id, product, qty, size, color }) => (
             <div key={id} className="glass rounded-2xl p-4 flex gap-4">
               <div className="h-24 w-24 sm:h-28 sm:w-28 rounded-xl overflow-hidden bg-secondary shrink-0">
-                <img src={product.image} alt="" className="h-full w-full object-cover" />
+                <ProductImage
+                  thumbnail
+                  src={product.image}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
               </div>
               <div className="flex-1 min-w-0 flex flex-col justify-between">
                 <div>

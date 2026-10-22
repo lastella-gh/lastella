@@ -1,3 +1,4 @@
+import { ProductImage } from "@/components/ProductImage";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Building2, Gift, Home, Landmark } from "lucide-react";
 import { useState } from "react";
@@ -9,7 +10,6 @@ import {
   submitCheckout,
 } from "@/lib/checkout.functions";
 import { formatNumber, formatNumericLabel, formatPrice } from "@/lib/currency";
-import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import { useAllBoxProducts } from "@/lib/products";
 import { useStoreSettings } from "@/lib/settings";
@@ -27,7 +27,6 @@ type DeliveryType = "home" | "office";
 function Checkout() {
   const { lang, t } = useI18n();
   const navigate = useNavigate();
-  const { user } = useAuth();
   const { cart, cartTotal, clearCart } = useStore();
   const { data: settings } = useStoreSettings();
   const { data: boxes = [] } = useAllBoxProducts();
@@ -58,7 +57,6 @@ function Checkout() {
       const order = await submitCheckout({
         data: {
           checkout: {
-            email: String(form.get("email")),
             fullName: `${form.get("first_name")} ${form.get("last_name")}`.trim(),
             phone: String(form.get("phone")),
             address: String(form.get("address")),
@@ -96,16 +94,12 @@ function Checkout() {
         <div className="min-w-0 space-y-8">
           <Section title={lang === "ar" ? "معلومات التواصل" : "Contact Information"}>
             <Input
-              name="email"
-              type="email"
-              placeholder="Email address"
-              defaultValue={user?.email ?? ""}
-              required
-            />
-            <Input
               name="phone"
+              type="tel"
+              autoComplete="tel"
               placeholder={lang === "ar" ? "رقم الهاتف" : "Phone number"}
               required
+              maxLength={50}
             />
           </Section>
 
@@ -265,7 +259,8 @@ function Checkout() {
           <div className="max-h-64 space-y-3 overflow-auto pr-2">
             {cart.map(({ id, product, qty, size, color, variantId }) => (
               <div key={id} className="flex gap-3 text-sm">
-                <img
+                <ProductImage
+                  thumbnail
                   src={product.image}
                   alt=""
                   className="h-14 w-14 shrink-0 rounded-lg object-cover"
@@ -416,7 +411,8 @@ function BoxSuggestions({
               params={{ slug: product.slug }}
               className="w-40 shrink-0 overflow-hidden rounded-2xl border border-border bg-background transition hover:border-primary"
             >
-              <img
+              <ProductImage
+                thumbnail
                 src={product.image}
                 alt={product.name.en}
                 className="aspect-square w-full object-cover"

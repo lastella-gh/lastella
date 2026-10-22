@@ -1,4 +1,18 @@
 {
+  "images": {
+    "sizes": [128, 256, 384, 640, 768, 1024, 1280],
+    "qualities": [75],
+    "domains": [],
+    "remotePatterns": [
+      {
+        "protocol": "https",
+        "hostname": "wgkbudzediwknmbdxvgy.supabase.co",
+        "pathname": "^/storage/v1/object/public/product-images/.*$"
+      }
+    ],
+    "minimumCacheTTL": 2592000,
+    "formats": ["image/webp"]
+  },
   "headers": [
     {
       "source": "/(.*)",

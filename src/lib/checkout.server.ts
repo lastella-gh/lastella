@@ -3,7 +3,7 @@ import "@tanstack/react-start/server-only";
 import { getRequestHeader } from "@tanstack/react-start/server";
 import { getSupabaseServerClient } from "@/integrations/supabase/server-client.server";
 import { deliveryFeeBaisa, fromBaisa, toBaisa, type CheckoutInput } from "@/lib/checkout";
-import { sendOrderEmails } from "@/lib/order-email.server";
+import { sendNewOrderAdminEmail } from "@/lib/order-email.server";
 import { deriveReceiptToken, hashToken, verifyPaymentProof } from "@/lib/payment-proof.server";
 
 type Product = {
@@ -50,10 +50,9 @@ export async function createCheckoutOrder(
   const shippingBaisa = deliveryFeeBaisa(input.deliveryType);
   const receiptToken = await deriveReceiptToken(payment.claimToken);
   const { data: order, error: commitError } = await supabase
-    .rpc("commit_checkout_order_v3", {
+    .rpc("commit_checkout_order_v4", {
       // Generated RPC types do not represent nullable PostgreSQL parameters.
       p_user_id: userId as string,
-      p_email: input.email.toLowerCase(),
       p_full_name: input.fullName,
       p_phone: input.phone,
       p_address: input.address,
@@ -73,7 +72,7 @@ export async function createCheckoutOrder(
     .single();
   if (commitError || !order) throw new Error("We could not place your order. Please try again.");
 
-  await sendOrderEmails(order.id, { receiptToken });
+  await sendNewOrderAdminEmail(order.id);
   return { ...order, successToken: receiptToken };
 }
 

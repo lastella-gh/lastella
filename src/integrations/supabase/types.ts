@@ -109,7 +109,7 @@ export type Database = {
           country: string;
           created_at: string;
           delivery_type: Database["public"]["Enums"]["delivery_type"] | null;
-          email: string;
+          email: string | null;
           full_name: string;
           id: string;
           need_gift_box: boolean;
@@ -142,7 +142,7 @@ export type Database = {
           country?: string;
           created_at?: string;
           delivery_type?: Database["public"]["Enums"]["delivery_type"] | null;
-          email: string;
+          email?: string | null;
           full_name: string;
           id?: string;
           need_gift_box?: boolean;
@@ -175,7 +175,7 @@ export type Database = {
           country?: string;
           created_at?: string;
           delivery_type?: Database["public"]["Enums"]["delivery_type"] | null;
-          email?: string;
+          email?: string | null;
           full_name?: string;
           id?: string;
           need_gift_box?: boolean;
@@ -427,6 +427,7 @@ export type Database = {
       };
       store_settings: {
         Row: {
+          admin_order_emails_enabled: boolean;
           bank_account_name: string;
           bank_account_number: string;
           bank_instructions: string;
@@ -438,6 +439,7 @@ export type Database = {
           video_url: string | null;
         };
         Insert: {
+          admin_order_emails_enabled?: boolean;
           bank_account_name?: string;
           bank_account_number?: string;
           bank_instructions?: string;
@@ -449,6 +451,7 @@ export type Database = {
           video_url?: string | null;
         };
         Update: {
+          admin_order_emails_enabled?: boolean;
           bank_account_name?: string;
           bank_account_number?: string;
           bank_instructions?: string;
@@ -520,6 +523,34 @@ export type Database = {
           p_country: string;
           p_delivery_type: Database["public"]["Enums"]["delivery_type"];
           p_email: string;
+          p_full_name: string;
+          p_items: Json;
+          p_notes: string;
+          p_payment_claim_hash: string;
+          p_payment_intent_id: string;
+          p_phone: string;
+          p_postal_code: string;
+          p_shipping: number;
+          p_subtotal: number;
+          p_success_token_hash: string;
+          p_total: number;
+          p_user_id: string;
+        };
+        Returns: {
+          id: string;
+          order_number: string;
+          shipping: number;
+          subtotal: number;
+          tax: number;
+          total: number;
+        }[];
+      };
+      commit_checkout_order_v4: {
+        Args: {
+          p_address: string;
+          p_city: string;
+          p_country: string;
+          p_delivery_type: Database["public"]["Enums"]["delivery_type"];
           p_full_name: string;
           p_items: Json;
           p_notes: string;

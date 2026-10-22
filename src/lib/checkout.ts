@@ -9,9 +9,8 @@ export const checkoutItemSchema = z.object({
 });
 
 export const checkoutSchema = z.object({
-  email: z.string().trim().email().max(320),
   fullName: z.string().trim().min(1).max(200),
-  phone: z.string().trim().max(50),
+  phone: z.string().trim().min(1, "Contact number is required").max(50),
   address: z.string().trim().min(1).max(500),
   city: z.string().trim().min(1).max(120),
   country: z.string().trim().min(1).max(120),

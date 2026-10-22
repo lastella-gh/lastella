@@ -2,7 +2,6 @@ import "@tanstack/react-start/server-only";
 
 import { requireAdmin } from "@/lib/server-auth.server";
 import type { Enums } from "@/integrations/supabase/types";
-import { sendOrderEmails } from "@/lib/order-email.server";
 
 export type PaymentStatus =
   "awaiting_payment" | "proof_submitted" | "payment_verified" | "payment_rejected";
@@ -11,7 +10,7 @@ export type AdminOrder = {
   id: string;
   order_number: string;
   full_name: string;
-  email: string;
+  email: string | null;
   phone: string | null;
   address: string;
   city: string;
@@ -147,7 +146,6 @@ export async function reviewAdminPayment(
     .maybeSingle();
   if (error) throw new Error(`Failed to review payment: ${error.message}`);
   if (!updated) throw new Error("This payment has changed. Refresh the order and try again.");
-  await sendOrderEmails(orderId, { event: decision, revision: updated.updated_at });
   return { success: true };
 }
 
@@ -181,13 +179,5 @@ export async function updateAdminOrderStatus(orderId: string, status: string) {
     .maybeSingle();
   if (error) throw new Error(`Failed to update order status: ${error.message}`);
   if (!updated) throw new Error("This order has changed. Refresh it and try again.");
-  if (
-    status === "processing" ||
-    status === "shipped" ||
-    status === "delivered" ||
-    status === "cancelled"
-  ) {
-    await sendOrderEmails(orderId, { event: status, revision: updated.updated_at });
-  }
   return { success: true };
 }

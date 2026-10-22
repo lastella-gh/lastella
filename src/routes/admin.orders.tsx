@@ -1,3 +1,4 @@
+import { ProductImage } from "@/components/ProductImage";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useEffectEvent, useState } from "react";
 import { Check, ChevronDown, ExternalLink, X } from "lucide-react";
@@ -169,7 +170,7 @@ function AdminOrders() {
                           Customer
                         </h4>
                         <p>{o.full_name}</p>
-                        <p className="text-muted-foreground">{o.email}</p>
+                        {o.email && <p className="text-muted-foreground">{o.email}</p>}
                         <p className="text-muted-foreground">{o.phone}</p>
                         <p className="text-muted-foreground">
                           {o.address}, {o.city}
@@ -282,7 +283,8 @@ function AdminOrders() {
                             >
                               <div className="row-span-2 h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-secondary">
                                 {it.product_image && (
-                                  <img
+                                  <ProductImage
+                                    thumbnail
                                     src={it.product_image}
                                     alt=""
                                     className="h-full w-full object-cover"

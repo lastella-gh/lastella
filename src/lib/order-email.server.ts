@@ -1,41 +1,51 @@
 import "@tanstack/react-start/server-only";
 
 import { getSupabaseServerClient } from "@/integrations/supabase/server-client.server";
-import { emailUrl, renderOrderEmail, type OrderEmailEvent } from "@/lib/order-email-template";
+import { emailUrl, renderNewOrderAdminEmail } from "@/lib/order-email-template";
 
 let warnedAboutConfiguration = false;
 
-// All callers run after a committed order change. Email failures must never undo that change.
-export async function sendOrderEmails(
+// Called only after checkout commits. Notification failures never undo an order.
+export async function sendNewOrderAdminEmail(
   orderId: string,
-  {
-    event = "order_received",
-    revision,
-    receiptToken,
-  }: {
-    event?: Exclude<OrderEmailEvent, "new_order">;
-    revision?: string;
-    receiptToken?: string;
-  } = {},
 ): Promise<"disabled" | "logged" | "sent" | "failed"> {
-  const isDevelopment = process.env.NODE_ENV === "development";
-  const key = process.env.RESEND_API_KEY?.trim();
-  const from = process.env.ORDER_EMAIL_FROM?.trim();
-  if (!isDevelopment && (!key || !from)) {
-    if (!warnedAboutConfiguration) {
-      console.warn("Order emails disabled: configure RESEND_API_KEY and ORDER_EMAIL_FROM");
-      warnedAboutConfiguration = true;
-    }
-    return "disabled";
-  }
-
   try {
     const supabase = getSupabaseServerClient();
-    // Use the immutable item snapshots and committed totals, never browser-supplied cart details.
+    // Read the switch on every order so turning it off takes effect immediately.
+    const { data: settings, error: settingsError } = await supabase
+      .from("store_settings")
+      .select("admin_order_emails_enabled")
+      .eq("id", 1)
+      .single();
+    if (settingsError) throw new Error("Unable to load order notification settings");
+    if (settings?.admin_order_emails_enabled !== true) return "disabled";
+
+    const admins = [
+      ...new Set(
+        (process.env.ORDER_ADMIN_EMAILS ?? "")
+          .split(",")
+          .map((email) => email.trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    ];
+    if (!admins.length) return "disabled";
+
+    const isDevelopment = process.env.NODE_ENV === "development";
+    const key = process.env.RESEND_API_KEY?.trim();
+    const from = process.env.ORDER_EMAIL_FROM?.trim();
+    if (!isDevelopment && (!key || !from)) {
+      if (!warnedAboutConfiguration) {
+        console.warn("Admin order emails disabled: configure RESEND_API_KEY and ORDER_EMAIL_FROM");
+        warnedAboutConfiguration = true;
+      }
+      return "disabled";
+    }
+
+    // Render committed order/item snapshots, never browser-supplied cart details.
     const { data: order, error } = await supabase
       .from("orders")
       .select(
-        "id, order_number, full_name, email, phone, address, city, country, delivery_type, subtotal, shipping, tax, total, payment_status, payment_rejection_reason, notes, created_at, updated_at",
+        "id, order_number, full_name, phone, address, city, country, delivery_type, subtotal, shipping, tax, total, payment_status, notes, created_at, updated_at",
       )
       .eq("id", orderId)
       .single();
@@ -48,59 +58,30 @@ export async function sendOrderEmails(
     if (itemsError || !items?.length) throw new Error("Unable to load email items");
 
     const siteUrl = emailUrl(process.env.ORDER_EMAIL_SITE_URL) ?? undefined;
-    const receiptUrl =
-      siteUrl && receiptToken
-        ? new URL(`/order-success/${encodeURIComponent(receiptToken)}`, siteUrl).href
-        : undefined;
-    const admins = [
-      ...new Set(
-        (process.env.ORDER_ADMIN_EMAILS ?? "")
-          .split(",")
-          .map((email) => email.trim().toLowerCase())
-          .filter(Boolean),
-      ),
-    ];
-    const deliveries: { to: string | string[]; event: OrderEmailEvent }[] = [
-      { to: order.email, event },
-      ...(event === "order_received" && admins.length
-        ? [{ to: admins, event: "new_order" as const }]
-        : []),
-    ];
-
-    const results = await Promise.allSettled(
-      deliveries.map(async (delivery) => {
-        const email = renderOrderEmail({
-          event: delivery.event,
-          order,
-          items,
-          siteUrl,
-          receiptUrl,
-        });
-        if (isDevelopment) {
-          console.info("[Order email: development preview, not sent]", {
-            orderId,
-            event: delivery.event,
-            from: from ?? "Lastella (development)",
-            to: delivery.to,
-            subject: email.subject,
-            text: receiptUrl
-              ? email.text.replaceAll(receiptUrl, "[private receipt link omitted]")
-              : email.text,
-          });
-          return;
-        }
-        const idempotencyKey = `lastella/${orderId}/${delivery.event}/${event === "order_received" ? "created" : (revision ?? order.updated_at)}`;
-        await sendEmail({ key: key!, from: from!, ...delivery, ...email, idempotencyKey });
-      }),
-    );
-    if (results.some((result) => result.status === "rejected")) {
-      throw new Error("One or more email deliveries failed after provider retries");
+    const email = renderNewOrderAdminEmail({ order, items, siteUrl });
+    if (isDevelopment) {
+      console.info("[Admin order email: development preview, not sent]", {
+        orderId,
+        from: from ?? "Lastella (development)",
+        to: admins,
+        subject: email.subject,
+        text: email.text,
+      });
+      return "logged";
     }
-    return isDevelopment ? "logged" : "sent";
+
+    await sendEmail({
+      key: key!,
+      from: from!,
+      to: admins,
+      ...email,
+      idempotencyKey: `lastella/${orderId}/new_order/created`,
+    });
+    return "sent";
   } catch (error) {
-    // Do not include provider response bodies, recipient details, or receipt tokens in logs.
+    // Provider bodies and private payment/receipt credentials must not enter logs.
     console.error(
-      `Order email failed: order=${orderId} event=${event}`,
+      `Admin order email failed: order=${orderId}`,
       error instanceof Error ? error.message : "Unknown email error",
     );
     return "failed";
@@ -111,7 +92,6 @@ async function sendEmail({
   key,
   from,
   to,
-  event,
   subject,
   html,
   text,
@@ -120,7 +100,6 @@ async function sendEmail({
   key: string;
   from: string;
   to: string | string[];
-  event: OrderEmailEvent;
   subject: string;
   html: string;
   text: string;
@@ -135,7 +114,7 @@ async function sendEmail({
     ...(process.env.ORDER_EMAIL_REPLY_TO?.trim()
       ? { reply_to: process.env.ORDER_EMAIL_REPLY_TO.trim() }
       : {}),
-    tags: [{ name: "event", value: event }],
+    tags: [{ name: "event", value: "new_order" }],
   });
   for (let attempt = 0; attempt < 2; attempt++) {
     let retryAfter = 1_000;

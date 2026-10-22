@@ -105,7 +105,6 @@ const dict = {
     "contact.hoursValue": "10:00 AM – 10:00 PM",
     "common.currency": "OMR",
     "common.free_shipping": "Home and office delivery across Oman",
-    "common.lifetime": "Lifetime warranty",
     "common.returns": "7-day easy returns · Bank transfer",
   },
   ar: {
@@ -208,7 +207,6 @@ const dict = {
     "contact.hoursValue": "١٠:٠٠ صباحًا – ١٠:٠٠ مساءً",
     "common.currency": "OMR",
     "common.free_shipping": "توصيل للمنزل أو المكتب داخل سلطنة عُمان",
-    "common.lifetime": "ضمان مدى الحياة",
     "common.returns": "إرجاع خلال 7 أيام · تحويل بنكي",
   },
 } as const;
@@ -228,17 +226,15 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>("ar");
 
   useEffect(() => {
-    const saved =
-      typeof window !== "undefined" ? (localStorage.getItem("lastella-lang") as Lang | null) : null;
-    if (saved === "ar" || saved === "en") {
-      setLangState(saved);
-    } else {
-      setLangState("ar");
-      try {
+    try {
+      const saved = localStorage.getItem("lastella-lang");
+      if (saved === "ar" || saved === "en") {
+        setLangState(saved);
+      } else {
         localStorage.setItem("lastella-lang", "ar");
-      } catch {
-        // Language persistence is optional when storage is unavailable.
       }
+    } catch {
+      // Keep the Arabic default when browser storage is unavailable.
     }
   }, []);
 

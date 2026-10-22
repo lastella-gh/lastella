@@ -14,6 +14,11 @@ export default defineConfig({
     autoCodeSplitting: false,
   },
   vite: {
+    define: {
+      "import.meta.env.VITE_VERCEL_IMAGES": JSON.stringify(
+        process.env.VERCEL === "1" || process.env.NITRO_PRESET?.startsWith("vercel") === true,
+      ),
+    },
     build: {
       rollupOptions: {
         output: {

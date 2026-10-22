@@ -43,8 +43,7 @@ function OrderSuccess() {
         </div>
         <div className="mt-8 border-t border-border pt-6">
           <p className="text-sm text-muted-foreground">
-            Confirmation details for {order.email}
-            {order.phone ? ` · ${order.phone}` : ""}
+            {lang === "ar" ? "رقم التواصل" : "Contact number"}: {order.phone ?? "—"}
           </p>
           <ul className="mt-4 space-y-2 text-sm">
             {order.items.map((item) => (

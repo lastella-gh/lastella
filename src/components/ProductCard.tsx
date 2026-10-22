@@ -1,3 +1,4 @@
+import { ProductImage } from "@/components/ProductImage";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Heart, Eye, ShoppingBag, Star } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
@@ -45,7 +46,7 @@ export function ProductCard({ product }: { product: Product }) {
         className="block"
       >
         <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-secondary">
-          <img
+          <ProductImage
             src={product.image || "/favicon.png"}
             alt={nameText}
             loading="lazy"

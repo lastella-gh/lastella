@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Save } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +20,7 @@ type SettingsForm = Pick<
   | "bank_account_name"
   | "bank_account_number"
   | "bank_instructions"
+  | "admin_order_emails_enabled"
 >;
 
 const emptySettings: SettingsForm = {
@@ -29,9 +31,11 @@ const emptySettings: SettingsForm = {
   bank_account_name: "",
   bank_account_number: "",
   bank_instructions: "",
+  admin_order_emails_enabled: true,
 };
 
 function AdminSettings() {
+  const queryClient = useQueryClient();
   const [settings, setSettings] = useState<SettingsForm>(emptySettings);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -40,7 +44,9 @@ function AdminSettings() {
     async function loadSettings() {
       const { data, error } = await supabase
         .from("store_settings")
-        .select("*")
+        .select(
+          "video_url, video_poster_url, video_enabled, bank_name, bank_account_name, bank_account_number, bank_instructions, admin_order_emails_enabled",
+        )
         .eq("id", 1)
         .single();
 
@@ -86,6 +92,7 @@ function AdminSettings() {
     }
 
     setSettings(payload);
+    await queryClient.invalidateQueries({ queryKey: ["store-settings"] });
     toast.success("Store settings saved");
   }
 
@@ -99,7 +106,7 @@ function AdminSettings() {
         <div>
           <h2 className="font-display text-3xl">Store Settings</h2>
           <p className="text-xs text-muted-foreground mt-1">
-            Manage storefront video and bank transfer details
+            Manage storefront video, bank transfer details, and order notifications
           </p>
         </div>
         <button
@@ -196,6 +203,24 @@ function AdminSettings() {
             </Field>
           </div>
         </div>
+      </section>
+      <section className="glass min-w-0 space-y-5 rounded-2xl p-4 sm:p-6">
+        <div>
+          <h3 className="font-display text-2xl">Order Notifications</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Email the admin team when a new order is received. Customers do not receive order
+            emails.
+          </p>
+        </div>
+        <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-border/50 bg-secondary/10 p-4 hover:bg-secondary/20">
+          <input
+            type="checkbox"
+            checked={settings.admin_order_emails_enabled}
+            onChange={(event) => update("admin_order_emails_enabled", event.target.checked)}
+            className="h-4 w-4 shrink-0 rounded border-border accent-primary"
+          />
+          <span className="text-sm font-medium">Email admins when a new order is received</span>
+        </label>
       </section>
       <button
         disabled={saving}

@@ -1,3 +1,4 @@
+import { ProductImage } from "@/components/ProductImage";
 import { AdminFormDialog } from "@/components/admin/AdminFormDialog";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
@@ -258,7 +259,8 @@ function AdminProducts() {
                   className="min-w-0 rounded-xl border border-border/60 bg-background/60 p-4"
                 >
                   <div className="flex min-w-0 items-start gap-3">
-                    <img
+                    <ProductImage
+                      thumbnail
                       src={product.image}
                       alt=""
                       className="h-14 w-14 shrink-0 rounded-lg border border-border/40 object-cover"
@@ -343,7 +345,8 @@ function AdminProducts() {
                       <td className="p-4">
                         <div className="flex min-w-56 items-center gap-3">
                           <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-border/40 bg-secondary">
-                            <img
+                            <ProductImage
+                              thumbnail
                               src={product.image}
                               alt=""
                               className="h-full w-full object-cover"
@@ -935,7 +938,13 @@ function ProductForm({
                 className="hidden"
               />
               {mainPreview ? (
-                <img src={mainPreview} alt="Preview" className="h-full w-full object-cover" />
+                <ProductImage
+                  detail
+                  loading="eager"
+                  src={mainPreview}
+                  alt="Preview"
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 <span className="flex flex-col items-center gap-2 text-sm text-muted-foreground">
                   <ImagePlus className="h-7 w-7 text-primary" /> Upload main image
@@ -1188,7 +1197,7 @@ function CheckboxCard({
 function ImageThumbnail({ src, onRemove }: { src: string; onRemove: () => void }) {
   return (
     <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-border">
-      <img src={src} alt="" className="h-full w-full object-cover" />
+      <ProductImage thumbnail src={src} alt="" className="h-full w-full object-cover" />
       <button
         type="button"
         onClick={onRemove}

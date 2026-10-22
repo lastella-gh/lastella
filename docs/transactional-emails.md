@@ -1,41 +1,37 @@
-# Lastella transactional emails
+# Lastella admin order notifications
 
-Emails are sent server-side through Resend after checkout or an admin order change has committed. They use the saved `orders` and `order_items` snapshots, including product images, sizes/colors, quantities, unit and line prices, delivery address, and three-decimal OMR totals. The HTML uses email-compatible tables and inline styles; every email also includes plain text.
+Checkout collects a contact number, name, and delivery address. It does not collect or infer a customer email, including for signed-in customers. New orders store `NULL` in the optional historical `orders.email` column. Existing order emails are retained for historical admin records. Account sign-in still uses Supabase Auth email/password.
 
-## Configuration
+Only admins receive a branded email when a new order is committed. Customers receive no order, payment-review, shipping, delivery, or cancellation emails. Admin payment/status changes send no emails. The notification includes saved product names/images, sizes/colors, quantities, three-decimal OMR totals, customer contact number, delivery address, and notes. HTML and plain-text versions are provided.
 
-Set these in the deployment's server environment, and in the ignored `.env` for local previews:
+## Store setting
 
-| Variable               | Purpose                                                                                                                        |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `RESEND_API_KEY`       | Resend sending API key. Keep server-only.                                                                                      |
-| `ORDER_EMAIL_FROM`     | Verified sender: `Lastella <info@lastellajewellery.com>`.                                                                      |
-| `ORDER_ADMIN_EMAILS`   | Optional comma-separated recipients for new-order alerts.                                                                      |
-| `ORDER_EMAIL_SITE_URL` | Public HTTPS storefront origin. Used for the hosted logo, checkout receipt links, and admin links. No trailing path is needed. |
-| `ORDER_EMAIL_REPLY_TO` | Optional monitored support email for customer replies.                                                                         |
+In **Admin → Store Settings → Order Notifications**, use **Email admins when a new order is received**, then save. The persisted `store_settings.admin_order_emails_enabled` switch defaults to enabled and is read server-side on every checkout. Turning it off suppresses both sending and development previews for subsequent orders. A missing/unreadable setting fails closed; notification failures do not fail checkout.
 
-The configured storefront is currently `https://lastella-demo.vercel.app`. When the custom domain is live, change only `ORDER_EMAIL_SITE_URL` to `https://lastellajewellery.com` in `.env` and the deployment environment, then restart/redeploy so the server loads the new value. No code change is needed. Sender, reply-to, and admin inbox currently use `info@lastellajewellery.com`; these are also environment-configurable.
+Only admins can update Store Settings through existing RLS policies. Recipient addresses and provider credentials stay in server environment variables.
 
-Verify the sender domain in Resend and configure its required DNS records before enabling delivery. Use the real deployed storefront URL. Do not prefix any of these variables with `VITE_`.
+## Environment
 
-In production, without the API key or sender, email sending is disabled with a server log warning. Without the site URL, emails retain the text branding and order details, but omit the logo and storefront/receipt links. The order receipt token is used only in the customer's confirmation link; admin alerts link to the authenticated admin panel. Payment-proof images and private Storage links are never attached or included.
+| Variable               | Purpose                                                                                                         |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `RESEND_API_KEY`       | Server-only Resend API key.                                                                                     |
+| `ORDER_EMAIL_FROM`     | Verified sender, e.g. `Lastella <info@lastellajewellery.com>`.                                                  |
+| `ORDER_ADMIN_EMAILS`   | Comma-separated admin recipients. Without recipients, no notification is sent.                                  |
+| `ORDER_EMAIL_SITE_URL` | Storefront origin for the hosted logo and authenticated admin-order link, e.g. `https://lastellajewellery.com`. |
+| `ORDER_EMAIL_REPLY_TO` | Optional monitored reply-to address.                                                                            |
 
-## Events
+Do not use `VITE_` prefixes for email credentials. Production requires a verified Resend domain, API key, and sender. Environment changes require a restart/redeploy. Without a site URL, the email uses text branding and omits the admin link. No private checkout receipt token, payment proof, or signed Storage URL is included.
 
-With `npm run dev` (`NODE_ENV=development`), every email is logged to the server console instead of being sent to Resend, even when an API key is configured. The preview includes the recipient, event, subject, and plain-text order details; API keys and private receipt links are omitted. No Resend key or sender is required for development previews. Production delivery keeps the configuration requirements above.
+## Development and failures
 
-- Checkout: customer order receipt and a separate new-order alert to configured admins. The current proof-upload checkout says the bank transfer proof is under review; it does not claim that payment is verified.
-- Payment review: customer payment verified or rejected email, including the rejection reason when applicable.
-- Order status: customer emails for processing, shipped, delivered, and cancelled. Selecting the existing state does not send another email. Pending/awaiting-payment status edits do not send a separate update.
+With `npm run dev` (`NODE_ENV=development`), enabled admin notifications are logged to the server console instead of sent, even if an API key is present. No API key or sender is required for these previews. The log contains the admin recipients, subject, and plain-text order details.
 
-Email failure never turns a successful checkout or admin update into an error. Transient network failures, rate limits, and provider 5xx responses receive one bounded retry. The same request uses the same Resend idempotency key; provider deduplication lasts 24 hours. Status events use the committed update timestamp so a later transition back to the same status can send a fresh notification. Customer and admin delivery are independent.
+Production requests have a five-second timeout and one bounded retry for network failures, rate limits, or provider 5xx responses. The stable new-order idempotency key is retained across checkout retries; provider deduplication lasts 24 hours. Failures are logged without provider response bodies or private receipt/payment credentials. Checkout remains successful if notification delivery fails.
 
-This integration does not include a durable email outbox or delivery webhooks. Permanent failures are logged with order ID and event; delivery/bounce diagnostics are available in Resend. An application crash after committing an order can leave an email unsent. Use a durable outbox if guaranteed background retries are required. Do not replay old checkout requests as a general email resend tool.
+There is no durable email outbox or delivery webhook integration. A process crash after order commit can leave a notification unsent; provider delivery diagnostics remain in Resend. Do not replay old checkout requests as a general resend tool.
 
 ## Verification
 
-Before production enablement, inspect a rendered HTML preview at phone and desktop widths, including image-blocked/plain-text output. Exercise checkout, payment decisions, and order status changes against intercepted provider requests; verify recipient separation, stored totals/options, no email on failed mutations, retry idempotency, and that provider failures do not fail the completed order action.
+Check phone-only guest and signed-in checkout, required contact-number validation, and the persisted setting. Intercept provider requests to verify admin-only recipients, saved order totals/options, switch-off suppression, retry idempotency, and no sends from development or order status/payment changes. Use only a deliberately chosen test inbox for real delivery tests.
 
-A real inbox delivery check requires a verified sender and API key. Use an explicitly chosen test recipient rather than a customer's address.
-
-Provider references: [sending email](https://resend.com/docs/api-reference/emails/send-email), [idempotency keys](https://resend.com/docs/dashboard/emails/idempotency-keys), [domain verification](https://resend.com/docs/dashboard/domains/introduction).
+Provider references: [sending email](https://resend.com/docs/api-reference/emails/send-email), [idempotency](https://resend.com/docs/dashboard/emails/idempotency-keys).

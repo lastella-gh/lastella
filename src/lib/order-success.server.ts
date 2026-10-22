@@ -11,7 +11,6 @@ type OrderRow = {
   created_at: string;
   delivery_type: string;
   total: number;
-  email: string;
   phone: string | null;
 };
 export type OrderSuccessDto = {
@@ -21,7 +20,6 @@ export type OrderSuccessDto = {
   date: string;
   deliveryType: string;
   total: number;
-  email: string;
   phone: string | null;
   items: {
     name: string;
@@ -36,9 +34,7 @@ export async function getOrderSuccess(token: string): Promise<OrderSuccessDto> {
   const supabase = getSupabaseServerClient();
   const { data: order, error } = await supabase
     .from("orders")
-    .select(
-      "id, order_number, status, payment_status, created_at, delivery_type, total, email, phone",
-    )
+    .select("id, order_number, status, payment_status, created_at, delivery_type, total, phone")
     .eq("success_token_hash", await hashToken(token))
     .single();
   const orderRow = order as OrderRow | null;
@@ -55,7 +51,6 @@ export async function getOrderSuccess(token: string): Promise<OrderSuccessDto> {
     date: orderRow.created_at,
     deliveryType: orderRow.delivery_type,
     total: orderRow.total,
-    email: maskEmail(String(orderRow.email)),
     phone: maskPhone(orderRow.phone as string | null),
     items: itemRows.map((item) => ({
       name: String(item.product_name),
@@ -65,11 +60,6 @@ export async function getOrderSuccess(token: string): Promise<OrderSuccessDto> {
       color: item.color == null ? null : String(item.color),
     })),
   };
-}
-
-function maskEmail(email: string) {
-  const [name, domain] = email.split("@");
-  return `${name?.slice(0, 1) ?? "*"}${"*".repeat(Math.max((name?.length ?? 1) - 1, 1))}@${domain ?? ""}`;
 }
 
 function maskPhone(phone: string | null) {

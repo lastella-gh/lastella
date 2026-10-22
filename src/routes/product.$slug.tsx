@@ -1,3 +1,4 @@
+import { ProductImage } from "@/components/ProductImage";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import {
   ChevronLeft,
@@ -6,7 +7,6 @@ import {
   Minus,
   Plus,
   RotateCcw,
-  Shield,
   ShoppingBag,
   Sparkles,
   Star,
@@ -372,7 +372,13 @@ function ProductPage() {
             className="relative aspect-square w-full cursor-zoom-in overflow-hidden rounded-3xl bg-secondary lg:hidden"
             aria-label={lang === "ar" ? "تكبير صورة المنتج" : "Enlarge product image"}
           >
-            <img src={activeImage} alt={productName} className="h-full w-full object-cover" />
+            <ProductImage
+              detail
+              loading="eager"
+              src={activeImage}
+              alt={productName}
+              className="h-full w-full object-cover"
+            />
             <span className="absolute start-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-background/85 text-foreground shadow-sm backdrop-blur">
               <ZoomIn className="h-5 w-5" />
             </span>
@@ -384,7 +390,10 @@ function ProductPage() {
             className="hidden aspect-square cursor-crosshair overflow-hidden rounded-3xl bg-secondary lg:block"
             aria-label={lang === "ar" ? "مرر المؤشر لتكبير الصورة" : "Hover to zoom product image"}
           >
-            <img
+            <ProductImage
+              detail
+              loading="eager"
+              original={imageZoomed}
               src={activeImage}
               alt={productName}
               className="h-full w-full object-cover transition-transform duration-150 ease-out"
@@ -425,7 +434,12 @@ function ProductPage() {
                     onClick={() => selectGalleryImage(index)}
                     className={`aspect-square overflow-hidden rounded-xl ring-2 ${activeImage === image ? "ring-primary" : "ring-transparent hover:ring-primary/50"}`}
                   >
-                    <img src={image} alt="" className="h-full w-full object-cover" />
+                    <ProductImage
+                      thumbnail
+                      src={image}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
                   </button>
                 ))}
               </div>
@@ -562,9 +576,8 @@ function ProductPage() {
             </button>
           </div>
 
-          <div className="mt-8 grid grid-cols-3 gap-3 text-xs">
+          <div className="mt-8 grid grid-cols-2 gap-3 text-xs">
             <Feature Icon={Truck} label={t("product.deliveryOman")} />
-            <Feature Icon={Shield} label={t("common.lifetime")} />
             <Feature Icon={RotateCcw} label={t("common.returns")} />
           </div>
         </div>

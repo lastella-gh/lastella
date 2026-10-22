@@ -64,7 +64,7 @@ function About() {
           {
             Icon: Award,
             title: lang === "ar" ? "الجودة" : "Quality",
-            text: lang === "ar" ? "ضمان مدى الحياة." : "Lifetime guarantee.",
+            text: lang === "ar" ? "خامات مختارة بعناية." : "Carefully selected materials.",
           },
         ].map(({ Icon, title, text }, i) => (
           <div key={i} className="glass rounded-3xl p-8 text-center">

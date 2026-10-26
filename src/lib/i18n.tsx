@@ -227,12 +227,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("lastella-lang");
-      if (saved === "ar" || saved === "en") {
-        setLangState(saved);
-      } else {
-        localStorage.setItem("lastella-lang", "ar");
-      }
+      // Every page load starts in Arabic, regardless of a previous English selection.
+      localStorage.setItem("lastella-lang", "ar");
     } catch {
       // Keep the Arabic default when browser storage is unavailable.
     }
@@ -246,11 +242,6 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const setLang = (l: Lang) => {
     setLangState(l);
-    try {
-      localStorage.setItem("lastella-lang", l);
-    } catch {
-      // Language persistence is optional when storage is unavailable.
-    }
   };
 
   const value: I18nCtx = {

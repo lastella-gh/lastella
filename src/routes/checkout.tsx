@@ -57,7 +57,7 @@ function Checkout() {
       const order = await submitCheckout({
         data: {
           checkout: {
-            fullName: `${form.get("first_name")} ${form.get("last_name")}`.trim(),
+            fullName: String(form.get("full_name") || "").trim(),
             phone: String(form.get("phone")),
             address: String(form.get("address")),
             city: String(form.get("city")),
@@ -131,18 +131,13 @@ function Checkout() {
           <Section
             title={lang === "ar" ? "عنوان التوصيل (سلطنة عُمان)" : "Delivery Address (Oman)"}
           >
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Input
-                name="first_name"
-                placeholder={lang === "ar" ? "الاسم الأول" : "First name"}
-                required
-              />
-              <Input
-                name="last_name"
-                placeholder={lang === "ar" ? "الاسم الأخير" : "Last name"}
-                required
-              />
-            </div>
+            <Input
+              name="full_name"
+              autoComplete="name"
+              placeholder={lang === "ar" ? "الاسم" : "Name"}
+              required
+              maxLength={200}
+            />
             <Input
               name="address"
               placeholder={

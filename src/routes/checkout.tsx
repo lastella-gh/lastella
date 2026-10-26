@@ -1,7 +1,7 @@
 import { ProductImage } from "@/components/ProductImage";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Building2, Gift, Home, Landmark } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { deliveryFeeBaisa, fromBaisa, toBaisa } from "@/lib/checkout";
 import {
@@ -32,10 +32,12 @@ function Checkout() {
   const { data: boxes = [] } = useAllBoxProducts();
   const [deliveryType, setDeliveryType] = useState<DeliveryType | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const checkoutToken = useRef<string | null>(null);
+  const [uploadingProof, setUploadingProof] = useState(false);
   const [proof, setProof] = useState<{ intentId: string; claimToken: string; name: string } | null>(
     null,
   );
-  const [proofState, setProofState] = useState("No payment proof selected");
+  const [proofState, setProofState] = useState("");
   const shippingBaisa = deliveryType ? deliveryFeeBaisa(deliveryType) : 0;
   const total = fromBaisa(toBaisa(cartTotal) + shippingBaisa);
   const cartItemsNeedingOptions = cart.filter((item) => !isCartItemPurchasable(item));
@@ -50,7 +52,8 @@ function Checkout() {
           : "Choose product options before checkout",
       );
     if (!deliveryType) return toast.error("Select Home or Office Delivery");
-    if (!proof) return toast.error("Upload your bank transfer proof first");
+    if (uploadingProof) return;
+    checkoutToken.current ??= crypto.randomUUID();
     const form = new FormData(event.currentTarget);
     setSubmitting(true);
     try {
@@ -73,6 +76,7 @@ function Checkout() {
             })),
           },
           payment: proof,
+          checkoutToken: checkoutToken.current,
         },
       });
       toast.success(`Order ${order.order_number} placed successfully!`);
@@ -192,13 +196,19 @@ function Checkout() {
               </p>
             </div>
           </Section>
-          <Section title={lang === "ar" ? "إثبات التحويل" : "Payment Proof"}>
+          <Section title={lang === "ar" ? "إثبات التحويل (اختياري)" : "Payment Proof (optional)"}>
+            <p className="text-sm text-muted-foreground">
+              {lang === "ar"
+                ? "يمكنك إتمام الطلب دون رفع إثبات التحويل. ستتم معالجة الطلب بعد تأكيد الدفع."
+                : "You can place your order without uploading payment proof. Orders are processed after payment confirmation."}
+            </p>
             <label className="block cursor-pointer overflow-hidden rounded-2xl border border-dashed border-primary/50 p-5 text-sm hover:bg-primary/5">
               <span className="font-medium">JPG, PNG or WEBP, maximum 5MB</span>
               <input
                 className="mt-3 block w-full overflow-hidden text-ellipsis text-sm"
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
+                disabled={submitting || uploadingProof}
                 onChange={async (event) => {
                   const file = event.currentTarget.files?.[0];
                   event.currentTarget.value = "";
@@ -211,6 +221,7 @@ function Checkout() {
                     setProofState("Invalid file. Choose a JPG, PNG or WEBP up to 5MB.");
                     return;
                   }
+                  setUploadingProof(true);
                   setProofState(`Preparing ${file.name}...`);
                   try {
                     if (proof) {
@@ -235,6 +246,8 @@ function Checkout() {
                   } catch {
                     setProof(null);
                     setProofState("Upload failed. Choose the file again to retry.");
+                  } finally {
+                    setUploadingProof(false);
                   }
                 }}
               />
@@ -311,7 +324,9 @@ function Checkout() {
           </div>
           <button
             type="submit"
-            disabled={submitting || !deliveryType || !proof || cartItemsNeedingOptions.length > 0}
+            disabled={
+              submitting || uploadingProof || !deliveryType || cartItemsNeedingOptions.length > 0
+            }
             className="mt-6 w-full rounded-full bg-primary px-6 py-4 text-sm font-semibold uppercase tracking-[0.15em] text-primary-foreground disabled:opacity-50"
           >
             {submitting ? "Placing..." : "Place Order"}

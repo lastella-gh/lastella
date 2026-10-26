@@ -18,11 +18,14 @@ type Product = {
 
 export async function createCheckoutOrder(
   input: CheckoutInput,
-  payment: { intentId: string; claimToken: string },
+  payment: { intentId: string; claimToken: string } | null | undefined,
+  checkoutToken?: string,
 ) {
   const supabase = getSupabaseServerClient();
   const userId = await getAuthenticatedUserId(supabase);
-  await verifyPaymentProof(payment.intentId, payment.claimToken);
+  if (payment) await verifyPaymentProof(payment.intentId, payment.claimToken);
+  const claimToken = payment?.claimToken ?? checkoutToken;
+  if (!claimToken) throw new Error("Checkout token is required");
   const quantities = new Map<string, number>();
   for (const item of input.items) {
     quantities.set(item.productId, (quantities.get(item.productId) ?? 0) + item.quantity);
@@ -48,7 +51,7 @@ export async function createCheckoutOrder(
   }
   const commitItems = validateAndBuildItems(input, products);
   const shippingBaisa = deliveryFeeBaisa(input.deliveryType);
-  const receiptToken = await deriveReceiptToken(payment.claimToken);
+  const receiptToken = await deriveReceiptToken(claimToken);
   const { data: order, error: commitError } = await supabase
     .rpc("commit_checkout_order_v4", {
       // Generated RPC types do not represent nullable PostgreSQL parameters.
@@ -65,8 +68,8 @@ export async function createCheckoutOrder(
       p_shipping: fromBaisa(shippingBaisa),
       p_total: fromBaisa(subtotalBaisa + shippingBaisa),
       p_items: commitItems,
-      p_payment_intent_id: payment.intentId,
-      p_payment_claim_hash: await hashToken(payment.claimToken),
+      p_payment_intent_id: (payment?.intentId ?? null) as string,
+      p_payment_claim_hash: (payment ? await hashToken(payment.claimToken) : null) as string,
       p_success_token_hash: await hashToken(receiptToken),
     })
     .single();

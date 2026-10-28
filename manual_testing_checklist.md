@@ -13,7 +13,7 @@
 - [ ] Products load from Supabase.
 - [ ] Product images, Arabic names, prices, badges, and manual availability display correctly.
 - [ ] Necklace, Bracelet, Bangle, Anklet, Ring, Earrings, Pendant, and Watch filters work.
-- [ ] New Arrivals and Best Selling show only products selected by an admin.
+- [ ] New Arrivals and Combos show only products selected by an admin.
 - [ ] Brand Boxes shows ring and general boxes with brand filtering.
 - [ ] Price ascending sort works.
 - [ ] Price descending sort works.
@@ -124,7 +124,7 @@
 - [ ] Product edits appear publicly.
 - [ ] Hiding a product removes it from the storefront.
 - [ ] Reactivating a product restores it.
-- [ ] Admin can independently toggle New Arrival and Best Seller membership.
+- [ ] Admin can independently toggle New Arrival and Combo membership.
 - [ ] Product deletion works.
 - [ ] A customer cannot create, edit, hide, or delete products.
 - [ ] A customer cannot upload product images.

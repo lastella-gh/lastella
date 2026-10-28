@@ -11,7 +11,7 @@ This document is the implementation specification derived from the client discus
 - Gift Sets is not a category.
 - Every product belongs to one managed brand. Existing jewelry initially belongs to a temporary Lastella brand.
 - Category pages provide All and brand filters. All includes every visible product in that category.
-- New Arrivals and Best Selling are independent, admin-controlled collections. A product may appear in both.
+- New Arrivals and Combos are independent, admin-controlled collections. A product may appear in both.
 - Brand Boxes shows visible Ring Box and General Box products with brand filtering.
 
 ## 2. Availability and Visibility
@@ -115,7 +115,7 @@ Tiffany & Co., Gucci, and Rolex are excluded until matching assets are supplied.
 
 ## 10. Administration
 
-- Products: manage names, slug, brand, category/type, prices, badge, New Arrival and Best Seller collection membership, descriptions, visibility, availability, variants, and image galleries.
+- Products: manage names, slug, brand, category/type, prices, badge, New Arrival and Combo collection membership, descriptions, visibility, availability, variants, and image galleries.
 - Brands: create, edit, show, hide, and inspect product usage.
 - Orders: inspect delivery type, delivery fee, bank payment method, private payment proof, box line items, totals, payment review, and general order status.
 - Store settings: manage homepage video, poster, bank details, and transfer instructions.

@@ -1,7 +1,8 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
-import { useRef, type FormEventHandler, type ReactNode } from "react";
+import { useLayoutEffect, useRef, type FormEventHandler, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { usePageScrollLock } from "@/hooks/use-page-scroll-lock";
 
 export function AdminFormDialog({
   title,
@@ -20,7 +21,13 @@ export function AdminFormDialog({
   footer: ReactNode;
   className?: string;
 }) {
-  const returnPosition = useRef({ left: 0, top: 0, element: null as HTMLElement | null });
+  const returnFocus = useRef<HTMLElement | null>(null);
+  const content = useRef<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    returnFocus.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }, []);
+  usePageScrollLock(true);
 
   return (
     <Dialog.Root
@@ -32,21 +39,19 @@ export function AdminFormDialog({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[100] bg-foreground/40 backdrop-blur-sm" />
         <Dialog.Content
+          ref={content}
           dir="ltr"
-          onOpenAutoFocus={() => {
-            returnPosition.current = {
-              left: window.scrollX,
-              top: window.scrollY,
-              element:
-                document.activeElement instanceof HTMLElement ? document.activeElement : null,
-            };
+          onOpenAutoFocus={(event) => {
+            if (window.matchMedia("(pointer: coarse)").matches) {
+              // Do not open the iOS keyboard until a user taps an input.
+              event.preventDefault();
+              content.current?.focus({ preventScroll: true });
+            }
           }}
           onCloseAutoFocus={(event) => {
             event.preventDefault();
-            const { element, left, top } = returnPosition.current;
+            const element = returnFocus.current;
             if (element?.isConnected) element.focus({ preventScroll: true });
-            // Ignore the page's smooth scrolling when returning from the mobile form.
-            window.scrollTo({ left, top, behavior: "instant" });
           }}
           onInteractOutside={(event) => event.preventDefault()}
           className={cn(

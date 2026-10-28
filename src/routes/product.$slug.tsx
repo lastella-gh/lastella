@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { ProductCard } from "@/components/ProductCard";
 import { formatNumber, formatPrice } from "@/lib/currency";
 import { useI18n } from "@/lib/i18n";
+import { usePageScrollLock } from "@/hooks/use-page-scroll-lock";
 import {
   getLocalizedProductName,
   getPublicProductBySlug,
@@ -95,6 +96,7 @@ function ProductPage() {
   const [selectedSize, setSelectedSize] = useState<string | undefined>();
   const [activeImage, setActiveImage] = useState(product.image);
   const [imageOpen, setImageOpen] = useState(false);
+  usePageScrollLock(imageOpen);
   const [imageZoomed, setImageZoomed] = useState(false);
   const [zoomPosition, setZoomPosition] = useState({ x: 50, y: 50 });
   const [viewerScale, setViewerScale] = useState(1);
@@ -145,7 +147,6 @@ function ProductPage() {
 
   useEffect(() => {
     if (!imageOpen) return;
-    const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setImageOpen(false);
@@ -154,10 +155,8 @@ function ProductPage() {
         imageGestureRef.current = null;
       }
     };
-    document.body.style.overflow = "hidden";
     window.addEventListener("keydown", closeOnEscape);
     return () => {
-      document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
     };
   }, [imageOpen]);

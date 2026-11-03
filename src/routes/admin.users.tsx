@@ -1,9 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Search, X } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { AdminUserEditor } from "@/components/admin/AdminUserEditor";
+import type { AdminUserProfile } from "@/lib/admin-users";
 
 export const Route = createFileRoute("/admin/users")({
   component: AdminUsers,
@@ -48,9 +50,11 @@ async function loadUsers(search: string, page: number, signal: AbortSignal) {
 }
 
 function AdminUsers() {
+  const queryClient = useQueryClient();
   const { user, isAdmin } = useAuth();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
+  const [editing, setEditing] = useState<AdminUserProfile | null>(null);
   const { data, isPending, isFetching, isError, refetch } = useQuery({
     queryKey: ["admin-users", user?.id, search.trim(), page],
     queryFn: ({ signal }) => loadUsers(search.trim(), page, signal),
@@ -76,12 +80,24 @@ function AdminUsers() {
     );
   }
 
+  function editButton(profile: AdminUserProfile) {
+    return (
+      <button
+        onClick={() => setEditing(profile)}
+        aria-label={`Edit ${profile.full_name || "user"}`}
+        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-sm hover:bg-secondary"
+      >
+        <Pencil className="h-4 w-4" /> Edit
+      </button>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <h2 className="font-display text-3xl">Users</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          View registered users and their account roles.
+          Manage registered users, account roles, and passwords.
         </p>
       </div>
 
@@ -147,6 +163,9 @@ function AdminUsers() {
                       Joined {new Date(profile.created_at).toLocaleDateString("en-GB")}
                     </span>
                   </div>
+                  <div className="mt-3 flex justify-end border-t border-border/60 pt-2">
+                    {editButton(profile)}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -165,6 +184,9 @@ function AdminUsers() {
                     </th>
                     <th scope="col" className="p-4 text-start">
                       Joined
+                    </th>
+                    <th scope="col" className="p-4 text-end">
+                      Actions
                     </th>
                   </tr>
                 </thead>
@@ -185,6 +207,7 @@ function AdminUsers() {
                       <td className="p-4 text-muted-foreground">
                         {new Date(profile.created_at).toLocaleDateString("en-GB")}
                       </td>
+                      <td className="p-4 text-end">{editButton(profile)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -223,6 +246,17 @@ function AdminUsers() {
             </nav>
           )}
         </div>
+      )}
+      {editing && user && (
+        <AdminUserEditor
+          profile={editing}
+          currentUserId={user.id}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            void queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+          }}
+        />
       )}
     </div>
   );

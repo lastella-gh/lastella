@@ -29,7 +29,7 @@
 
 ## Supabase
 
-- Products, auth, profiles, roles, and admin data use browser-to-Supabase access through RLS. Checkout is the exception: a TanStack server function uses the server-only Supabase client. Do not reintroduce MongoDB, mock auth, or localStorage order persistence.
+- Products, auth, profiles, roles, and admin reads use browser-to-Supabase access through RLS. Checkout and admin user edits use TanStack server functions with the server-only Supabase client. User edits require verified admin authorization; profile/role edits use service-only `public.admin_update_user_details`, and password changes use the server-side Auth Admin API. Never allow browser roles to mutate user roles or execute this RPC. Do not reintroduce MongoDB, mock auth, or localStorage order persistence.
 - Required local/deployment variables are `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, and server-only `SUPABASE_SECRET_KEY`; `SUPABASE_URL` is optional and defaults to `VITE_SUPABASE_URL`. `.env` and `supabase/.temp/` are ignored. Never add a secret or service-role key to a `VITE_` variable.
 - `src/integrations/supabase/client.ts` contains required handling for opaque publishable keys and lazy SSR-safe initialization; do not simplify it to a default `createClient` call.
 - Products are read from `public.products`, brands from `public.brands`, variants from `public.product_variants`, and homepage/bank configuration from singleton `public.store_settings`. Auth state comes from Supabase Auth; admin authorization comes from `public.user_roles`, never an email check in UI code.

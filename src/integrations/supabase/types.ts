@@ -490,6 +490,16 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      admin_update_user_details: {
+        Args: {
+          p_actor_id: string;
+          p_full_name: string;
+          p_phone: string;
+          p_role: Database["public"]["Enums"]["app_role"];
+          p_user_id: string;
+        };
+        Returns: undefined;
+      };
       commit_checkout_order_v2: {
         Args: {
           p_address: string;

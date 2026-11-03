@@ -1,4 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { isProductCategory, type ProductCategory } from "@/lib/product-categories";
+
+export type { ProductCategory } from "@/lib/product-categories";
 
 export type ProductKind = "jewelry" | "ring_box" | "general_box";
 
@@ -10,17 +13,6 @@ export interface ProductVariant {
   color_ar?: string | null;
   available: boolean;
 }
-
-export type ProductCategory =
-  | "necklace"
-  | "bracelet"
-  | "bangle"
-  | "handcuff"
-  | "anklet"
-  | "ring"
-  | "earrings"
-  | "pendant"
-  | "watch";
 
 export interface Product {
   id: string;
@@ -68,6 +60,7 @@ function hasValidVariantSelection(
   variantId?: string,
 ) {
   if (!product.available) return false;
+  if (product.kind === "jewelry" && !isProductCategory(product.category)) return false;
   if (!product.variants.length) return !variantId && !size && !color;
   const variant = product.variants.find((option) => option.id === variantId);
   return (
@@ -115,18 +108,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (c) {
         const stored = JSON.parse(c) as CartItem[];
         setCart(
-          stored.map((item) => ({
-            ...item,
-            product: {
-              ...item.product,
-              kind: item.product.kind ?? "jewelry",
-              brandId: item.product.brandId ?? "",
-              brand: item.product.brand ?? null,
-              available: item.product.available ?? true,
-              visible: item.product.visible ?? true,
-              variants: item.product.variants ?? [],
-            },
-          })),
+          stored
+            .filter(
+              (item) =>
+                (item.product.kind ?? "jewelry") !== "jewelry" ||
+                isProductCategory(item.product.category),
+            )
+            .map((item) => ({
+              ...item,
+              product: {
+                ...item.product,
+                kind: item.product.kind ?? "jewelry",
+                brandId: item.product.brandId ?? "",
+                brand: item.product.brand ?? null,
+                available: item.product.available ?? true,
+                visible: item.product.visible ?? true,
+                variants: item.product.variants ?? [],
+              },
+            })),
         );
       }
       if (w) setWishlist(JSON.parse(w));

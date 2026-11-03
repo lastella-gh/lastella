@@ -6,23 +6,12 @@ import { getLocalizedProductName, useAllBoxProducts, useProducts } from "@/lib/p
 import { useI18n } from "@/lib/i18n";
 import { formatNumber } from "@/lib/currency";
 import { matchesProductSearch, shuffleProducts } from "@/lib/product-listing";
+import { PRODUCT_CATEGORIES } from "@/lib/product-categories";
 import { z } from "zod";
 
 export const Route = createFileRoute("/shop")({
   validateSearch: z.object({
-    category: z
-      .enum([
-        "necklace",
-        "bracelet",
-        "bangle",
-        "handcuff",
-        "anklet",
-        "ring",
-        "earrings",
-        "pendant",
-        "watch",
-      ])
-      .optional(),
+    category: z.enum(PRODUCT_CATEGORIES).optional().catch(undefined),
     collection: z.enum(["new-arrivals", "best-sellers", "brand-boxes"]).optional(),
   }),
   head: () => ({
@@ -31,7 +20,7 @@ export const Route = createFileRoute("/shop")({
       {
         name: "description",
         content:
-          "Explore Lastella's full collection of necklaces, rings, earrings, bracelets and watches.",
+          "Explore Lastella's full collection of necklaces, rings, earrings, bracelets, bangles, handcuffs and anklets.",
       },
       { property: "og:title", content: "Shop the Lastella Collection" },
       {
@@ -43,18 +32,7 @@ export const Route = createFileRoute("/shop")({
   component: Shop,
 });
 
-const cats = [
-  "all",
-  "necklace",
-  "bracelet",
-  "bangle",
-  "handcuff",
-  "anklet",
-  "ring",
-  "earrings",
-  "pendant",
-  "watch",
-] as const;
+const cats = ["all", ...PRODUCT_CATEGORIES] as const;
 const collections = ["brand-boxes", "best-sellers"] as const;
 const sorts = ["random", "newest", "price-asc", "price-desc", "rating"] as const;
 

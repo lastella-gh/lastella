@@ -10,6 +10,7 @@ import { formatPrice } from "@/lib/currency";
 import { translateToArabic, useArabicTranslation } from "@/hooks/use-arabic-translation";
 import { getKnownArabicVariantLabel, type VariantOptionKind } from "@/lib/variant-labels";
 import { filterAdminProducts, getProductKindLabel } from "@/lib/admin-product-listing";
+import { PRODUCT_CATEGORIES, type ProductCategory } from "@/lib/product-categories";
 
 export const Route = createFileRoute("/admin/products")({
   component: AdminProducts,
@@ -22,7 +23,6 @@ type Product = Tables<"products"> & {
   variants: ProductVariant[];
 };
 type ProductKind = Enums<"product_kind">;
-type ProductCategory = Enums<"product_category">;
 type VariantDraft = Pick<
   ProductVariant,
   "id" | "size" | "color" | "size_ar" | "color_ar" | "available"
@@ -31,17 +31,6 @@ type VariantDraft = Pick<
 const KINDS: { value: ProductKind; label: string }[] = [
   { value: "jewelry", label: "Jewelry" },
   { value: "general_box", label: "Jewelery Box" },
-];
-const CATEGORIES: ProductCategory[] = [
-  "necklace",
-  "bracelet",
-  "ring",
-  "earrings",
-  "pendant",
-  "watch",
-  "bangle",
-  "handcuff",
-  "anklet",
 ];
 
 function AdminProducts() {
@@ -201,7 +190,7 @@ function AdminProducts() {
             </option>
           ))}
           <optgroup label="Jewelry categories">
-            {CATEGORIES.map((category) => (
+            {PRODUCT_CATEGORIES.map((category) => (
               <option key={category} value={`category:${category}`}>
                 {category === "handcuff"
                   ? "Handcuffs"
@@ -854,7 +843,7 @@ function ProductForm({
               required
               className={inputClass}
             >
-              {CATEGORIES.map((category) => (
+              {PRODUCT_CATEGORIES.map((category) => (
                 <option key={category} value={category}>
                   {category}
                 </option>

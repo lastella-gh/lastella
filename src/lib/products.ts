@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Lang } from "@/lib/i18n";
 import type { Product, ProductKind, ProductVariant } from "@/lib/store";
+import { isProductCategory } from "@/lib/product-categories";
 
 type ProductRow = Awaited<ReturnType<typeof loadProducts>>[number];
 
@@ -20,7 +21,7 @@ async function loadProducts(kind?: ProductKind) {
   if (kind) query = query.eq("kind", kind);
   const { data, error } = await query;
   if (error) throw error;
-  return data;
+  return data.filter((row) => row.kind !== "jewelry" || isProductCategory(row.category));
 }
 
 export function mapProduct(row: ProductRow): Product {
@@ -29,7 +30,7 @@ export function mapProduct(row: ProductRow): Product {
     id: row.id,
     slug: row.slug,
     name: { en: row.name_en, ar: row.name_ar ?? "" },
-    category: row.category,
+    category: isProductCategory(row.category) ? row.category : null,
     kind: row.kind,
     brandId: row.brand_id,
     brand: row.brand,
@@ -66,8 +67,6 @@ export function getLocalizedProductName(product: Product, language: Lang) {
     anklet: "خلخال",
     ring: "خاتم",
     earrings: "أقراط",
-    pendant: "دلاية",
-    watch: "ساعة",
   };
   return product.category ? `قطعة من فئة ${categoryName[product.category]}` : "قطعة مجوهرات";
 }
@@ -115,6 +114,7 @@ export async function getPublicProductBySlug(slug: string) {
     .eq("visible", true)
     .maybeSingle();
   if (error) throw error;
-  const product = data ? mapProduct(data) : null;
+  const product =
+    data && (data.kind !== "jewelry" || isProductCategory(data.category)) ? mapProduct(data) : null;
   return product && product.brand?.visible !== false ? product : null;
 }

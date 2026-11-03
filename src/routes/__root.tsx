@@ -72,7 +72,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "description",
         content:
-          "Lastella crafts luxury jewelry — necklaces, rings, earrings, bracelets and watches — with heritage-house elegance at prices meant for everyday indulgence.",
+          "Lastella crafts luxury jewelry — necklaces, rings, earrings, bracelets, bangles, handcuffs and anklets — with heritage-house elegance at prices meant for everyday indulgence.",
       },
       { name: "author", content: "Lastella" },
       { property: "og:title", content: "Lastella · Luxury Jewelry" },

@@ -70,11 +70,6 @@ export function Footer() {
                   {t("cat.anklet")}
                 </Link>
               </li>
-              <li>
-                <Link to="/shop" search={{ category: "watch" }} className="hover:text-primary">
-                  {t("cat.watch")}
-                </Link>
-              </li>
             </ul>
           </div>
 

@@ -490,6 +490,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      admin_list_users: {
+        Args: { p_limit: number; p_offset: number; p_search: string };
+        Returns: Json;
+      };
       admin_update_user_details: {
         Args: {
           p_actor_id: string;

@@ -1,53 +1,16 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, Pencil, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Plus, Search, X } from "lucide-react";
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { AdminUserEditor } from "@/components/admin/AdminUserEditor";
-import type { AdminUserProfile } from "@/lib/admin-users";
+import { AdminUserCreator } from "@/components/admin/AdminUserCreator";
+import { ADMIN_USERS_PAGE_SIZE as PAGE_SIZE, type AdminUserProfile } from "@/lib/admin-users";
+import { loadAdminUsersFn } from "@/lib/admin-users.functions";
 
 export const Route = createFileRoute("/admin/users")({
   component: AdminUsers,
 });
-
-const PAGE_SIZE = 25;
-
-async function loadUsers(search: string, page: number, signal: AbortSignal) {
-  let query = supabase
-    .from("profiles")
-    .select("id, full_name, phone, created_at", { count: "exact" })
-    .order("created_at", { ascending: false })
-    .order("id")
-    .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
-    .abortSignal(signal);
-
-  if (search) {
-    // Quote PostgREST filter values and treat wildcard characters as literal text.
-    const pattern = JSON.stringify(`%${search.replace(/[\\%_*]/g, "\\$&")}%`);
-    query = query.or(`full_name.ilike.${pattern},phone.ilike.${pattern}`);
-  }
-
-  const { data: profiles, count, error } = await query;
-  if (error) throw error;
-  if (!profiles.length) return { users: [], count: count ?? 0 };
-
-  const { data: roles, error: rolesError } = await supabase
-    .from("user_roles")
-    .select("user_id, role")
-    .in(
-      "user_id",
-      profiles.map((profile) => profile.id),
-    )
-    .abortSignal(signal);
-  if (rolesError) throw rolesError;
-
-  const roleByUser = new Map(roles.map(({ user_id, role }) => [user_id, role]));
-  return {
-    users: profiles.map((profile) => ({ ...profile, role: roleByUser.get(profile.id) })),
-    count: count ?? 0,
-  };
-}
 
 function AdminUsers() {
   const queryClient = useQueryClient();
@@ -55,9 +18,10 @@ function AdminUsers() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
   const [editing, setEditing] = useState<AdminUserProfile | null>(null);
+  const [creating, setCreating] = useState(false);
   const { data, isPending, isFetching, isError, refetch } = useQuery({
     queryKey: ["admin-users", user?.id, search.trim(), page],
-    queryFn: ({ signal }) => loadUsers(search.trim(), page, signal),
+    queryFn: ({ signal }) => loadAdminUsersFn({ data: { search: search.trim(), page }, signal }),
     enabled: !!user && isAdmin,
     retry: 1,
   });
@@ -94,21 +58,30 @@ function AdminUsers() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="font-display text-3xl">Users</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Manage registered users, account roles, and passwords.
-        </p>
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+        <div>
+          <h2 className="font-display text-3xl">Users</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Manage registered users, account roles, and passwords.
+          </p>
+        </div>
+        <button
+          onClick={() => setCreating(true)}
+          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:bg-rose-deep sm:w-auto"
+        >
+          <Plus className="h-4 w-4" /> Create User
+        </button>
       </div>
 
       <div className="relative w-full sm:max-w-md">
         <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
           type="search"
-          aria-label="Search users by name or phone"
+          aria-label="Search users by name, email, or phone"
           value={search}
           onChange={(event) => updateSearch(event.target.value)}
-          placeholder="Search users by name or phone..."
+          placeholder="Search users by name, email, or phone..."
+          maxLength={254}
           className="w-full rounded-full border border-border bg-background/50 py-2.5 pl-10 pr-10 text-base backdrop-blur transition-all focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:text-sm"
         />
         {search && (
@@ -153,6 +126,9 @@ function AdminUsers() {
                   <p className="break-words font-medium">
                     {profile.full_name || "Name not provided"}
                   </p>
+                  <p className="mt-1 break-all text-sm text-muted-foreground">
+                    {profile.email || "Email not provided"}
+                  </p>
                   <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
                     {profile.id}
                   </p>
@@ -170,11 +146,14 @@ function AdminUsers() {
               ))}
             </ul>
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[560px] text-sm">
+              <table className="w-full min-w-[700px] text-sm">
                 <thead className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
                   <tr>
                     <th scope="col" className="p-4 text-start">
                       Name
+                    </th>
+                    <th scope="col" className="p-4 text-start">
+                      Email
                     </th>
                     <th scope="col" className="p-4 text-start">
                       Phone
@@ -202,6 +181,7 @@ function AdminUsers() {
                           {profile.id}
                         </p>
                       </td>
+                      <td className="max-w-xs break-all p-4">{profile.email || "—"}</td>
                       <td className="p-4">{profile.phone || "—"}</td>
                       <td className="p-4">{roleBadge(profile.role)}</td>
                       <td className="p-4 text-muted-foreground">
@@ -254,6 +234,16 @@ function AdminUsers() {
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
+            void queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+          }}
+        />
+      )}
+      {creating && (
+        <AdminUserCreator
+          onClose={() => setCreating(false)}
+          onCreated={(email) => {
+            setCreating(false);
+            updateSearch(email);
             void queryClient.invalidateQueries({ queryKey: ["admin-users"] });
           }}
         />

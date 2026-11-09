@@ -22,12 +22,12 @@ const brands = [
 const brandBySlug = new Map(brands.map((brand) => [brand[0], brand]));
 const boxDirectory = resolve("boxes");
 const files = (await readdir(boxDirectory)).filter((file) => extname(file) === ".jpeg").sort();
-const grouped = new Map();
+const photos = [];
 
 for (const filename of files) {
-  const match = filename.match(/^(.+)-(ring|general)-box-\d+\.jpeg$/);
+  const match = filename.match(/^(.+)-(ring|general)-box-(\d+)\.jpeg$/);
   if (!match) throw new Error(`Unexpected box filename: ${filename}`);
-  const [, brandSlug, boxType] = match;
+  const [, brandSlug, boxType, photoNumber] = match;
   if (!brandBySlug.has(brandSlug)) throw new Error(`Unknown brand in ${filename}`);
   const kind = `${boxType}_box`;
   const objectPath = `boxes/${brandSlug}/${kind}/${filename}`;
@@ -46,8 +46,7 @@ for (const filename of files) {
   if (!upload.ok)
     throw new Error(`Upload failed for ${filename}: ${upload.status} ${await upload.text()}`);
   const publicUrl = `${supabaseUrl}/storage/v1/object/public/product-images/${objectPath}`;
-  const key = `${brandSlug}:${kind}`;
-  grouped.set(key, [...(grouped.get(key) ?? []), publicUrl]);
+  photos.push({ brandSlug, boxType, photoNumber, publicUrl });
 }
 
 const brandResponse = await fetch(`${supabaseUrl}/rest/v1/brands?select=id,slug,name`, {
@@ -57,29 +56,59 @@ if (!brandResponse.ok) throw new Error(`Unable to load brands: ${await brandResp
 const brandRows = await brandResponse.json();
 const brandIds = new Map(brandRows.map((brand) => [brand.slug, brand.id]));
 
-const products = [...grouped].map(([key, images]) => {
-  const [brandSlug, kind] = key.split(":");
+const productResponse = await fetch(
+  `${supabaseUrl}/rest/v1/products?select=*&kind=eq.general_box`,
+  { headers: { apikey: secretKey } },
+);
+if (!productResponse.ok)
+  throw new Error(`Unable to load existing boxes: ${await productResponse.text()}`);
+const existingBySlug = new Map(
+  (await productResponse.json()).map((product) => [product.slug, product]),
+);
+
+const products = photos.map(({ brandSlug, boxType, photoNumber, publicUrl }) => {
   const [, brandName] = brandBySlug.get(brandSlug);
-  const isRing = kind === "ring_box";
+  // Keep established URLs for the first photo; additional photos get their own products.
+  const originalSlug = `${brandSlug}-${boxType}-box`;
+  const isFirstPhoto = Number(photoNumber) === 1;
+  const slug = isFirstPhoto ? originalSlug : `${originalSlug}-${photoNumber}`;
+  const existing = existingBySlug.get(slug);
+  const original = existingBySlug.get(originalSlug);
+  const savedFields = Object.fromEntries(
+    Object.entries(existing ?? {}).filter(
+      ([key]) => !["id", "created_at", "updated_at"].includes(key),
+    ),
+  );
+  const nameSuffix = isFirstPhoto ? "" : ` ${photoNumber}`;
+  const brandId = brandIds.get(brandSlug);
+  if (!brandId) throw new Error(`Missing brand: ${brandSlug}`);
   return {
-    slug: `${brandSlug}-${isRing ? "ring-box" : "general-box"}`,
-    name_en: `${brandName} Jewelery Box`,
-    name_ar: `${brandName} - صندوق مجوهرات`,
+    slug,
+    name_en: `${brandName} Jewelery Box${nameSuffix}`,
+    name_ar: `${brandName} - صندوق مجوهرات${nameSuffix}`,
     description_en: `${brandName} branded jewelry packaging set.`,
+    description_ar: null,
     category: null,
     kind: "general_box",
-    brand_id: brandIds.get(brandSlug),
-    price: 1.1,
+    brand_id: brandId,
+    price: original?.price ?? 1.1,
     old_price: null,
-    image: images[0],
-    images,
     badge: null,
-    available: true,
-    visible: true,
+    display_color: null,
+    rating: 0,
+    reviews: 0,
+    is_best_seller: false,
+    is_new_arrival: false,
+    available: original?.available ?? true,
+    visible: original?.visible ?? true,
     active: false,
     stock: 0,
     sizes: [],
     colors: [],
+    // Re-running the seed must preserve admin edits, including price and availability.
+    ...savedFields,
+    image: publicUrl,
+    images: [publicUrl],
   };
 });
 

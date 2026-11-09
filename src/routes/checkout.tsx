@@ -3,7 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Building2, Gift, Home, Landmark } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { deliveryFeeBaisa, fromBaisa, toBaisa } from "@/lib/checkout";
+import { checkoutSchema, deliveryFeeBaisa, fromBaisa, toBaisa } from "@/lib/checkout";
 import {
   discardPaymentProofUpload,
   preparePaymentProofUpload,
@@ -24,6 +24,18 @@ export const Route = createFileRoute("/checkout")({
 
 type DeliveryType = "home" | "office";
 
+const checkoutDetailsSchema = checkoutSchema.omit({ items: true });
+const CHECKOUT_FIELDS = {
+  phone: { name: "phone", requiredMessage: "checkout.phoneRequired" },
+  deliveryType: { name: "delivery_type", requiredMessage: "checkout.deliveryRequired" },
+  fullName: { name: "full_name", requiredMessage: "checkout.nameRequired" },
+  address: { name: "address", requiredMessage: "checkout.addressRequired" },
+  city: { name: "city", requiredMessage: "checkout.cityRequired" },
+  country: { name: "country", requiredMessage: "checkout.countryRequired" },
+  notes: { name: "notes", requiredMessage: "checkout.checkFields" },
+} as const;
+type CheckoutField = keyof typeof CHECKOUT_FIELDS;
+
 function Checkout() {
   const { lang, t } = useI18n();
   const navigate = useNavigate();
@@ -32,6 +44,8 @@ function Checkout() {
   const { data: boxes = [] } = useAllBoxProducts();
   const [deliveryType, setDeliveryType] = useState<DeliveryType | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<CheckoutField, string>>>({});
+  const validationAttempted = useRef(false);
   const checkoutToken = useRef<string | null>(null);
   const [uploadingProof, setUploadingProof] = useState(false);
   const [proof, setProof] = useState<{ intentId: string; claimToken: string; name: string } | null>(
@@ -42,31 +56,64 @@ function Checkout() {
   const total = fromBaisa(toBaisa(cartTotal) + shippingBaisa);
   const cartItemsNeedingOptions = cart.filter((item) => !isCartItemPurchasable(item));
 
+  function validateDetails(form: HTMLFormElement) {
+    const formData = new FormData(form);
+    const result = checkoutDetailsSchema.safeParse(
+      Object.fromEntries(
+        Object.entries(CHECKOUT_FIELDS).map(([field, { name }]) => [
+          field,
+          formData.get(name) ?? "",
+        ]),
+      ),
+    );
+    const errors: Partial<Record<CheckoutField, string>> = {};
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        const field = issue.path[0] as CheckoutField;
+        if (!(field in CHECKOUT_FIELDS)) continue;
+        errors[field] =
+          issue.code === "too_big"
+            ? t("checkout.tooLong").replace("{max}", formatNumber(Number(issue.maximum), lang))
+            : t(CHECKOUT_FIELDS[field].requiredMessage);
+      }
+    }
+    setFieldErrors(errors);
+    return { result, errors };
+  }
+
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (cart.length === 0) return toast.error("Your cart is empty");
+    if (submitting || uploadingProof) return;
+    validationAttempted.current = true;
+    const { result, errors } = validateDetails(event.currentTarget);
+    if (!result.success) {
+      toast.error(t("checkout.checkFields"));
+      const firstInvalidField = (Object.keys(CHECKOUT_FIELDS) as CheckoutField[]).find(
+        (field) => errors[field],
+      );
+      if (firstInvalidField) {
+        const input = event.currentTarget.querySelector<HTMLElement>(
+          `[name="${CHECKOUT_FIELDS[firstInvalidField].name}"]`,
+        );
+        input?.focus();
+        input?.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
+      return;
+    }
+    if (cart.length === 0) return toast.error(t("checkout.emptyCart"));
     if (cartItemsNeedingOptions.length > 0)
       return toast.error(
         lang === "ar"
           ? "اختاري خيارات المنتجات قبل إتمام الشراء"
           : "Choose product options before checkout",
       );
-    if (!deliveryType) return toast.error("Select Home or Office Delivery");
-    if (uploadingProof) return;
     checkoutToken.current ??= crypto.randomUUID();
-    const form = new FormData(event.currentTarget);
     setSubmitting(true);
     try {
       const order = await submitCheckout({
         data: {
           checkout: {
-            fullName: String(form.get("full_name") || "").trim(),
-            phone: String(form.get("phone")),
-            address: String(form.get("address")),
-            city: String(form.get("city")),
-            country: String(form.get("country") || "Sultanate of Oman"),
-            deliveryType,
-            notes: String(form.get("notes") || ""),
+            ...result.data,
             items: cart.map(({ product, qty, variantId, size, color }) => ({
               productId: product.id,
               quantity: qty,
@@ -94,7 +141,14 @@ function Checkout() {
       <h1 className="mb-10 font-display text-4xl sm:text-5xl">
         {lang === "ar" ? "إتمام الشراء" : "Checkout"}
       </h1>
-      <form className="grid min-w-0 gap-10 lg:grid-cols-[minmax(0,1fr)_400px]" onSubmit={onSubmit}>
+      <form
+        className="grid min-w-0 gap-10 lg:grid-cols-[minmax(0,1fr)_400px]"
+        noValidate
+        onSubmit={onSubmit}
+        onChange={(event) => {
+          if (validationAttempted.current) validateDetails(event.currentTarget);
+        }}
+      >
         <div className="min-w-0 space-y-8">
           <Section title={lang === "ar" ? "معلومات التواصل" : "Contact Information"}>
             <Input
@@ -104,11 +158,19 @@ function Checkout() {
               placeholder={lang === "ar" ? "رقم الهاتف" : "Phone number"}
               required
               maxLength={50}
+              error={fieldErrors.phone}
             />
           </Section>
 
           <Section title={lang === "ar" ? "طريقة التوصيل" : "Delivery Method"}>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div
+              className="grid gap-3 sm:grid-cols-2"
+              role="radiogroup"
+              aria-label={lang === "ar" ? "طريقة التوصيل" : "Delivery Method"}
+              aria-required="true"
+              aria-invalid={Boolean(fieldErrors.deliveryType)}
+              aria-describedby={fieldErrors.deliveryType ? "delivery_type-error" : undefined}
+            >
               <DeliveryCard
                 type="home"
                 selected={deliveryType}
@@ -118,6 +180,7 @@ function Checkout() {
                 subtitle="Residential address"
                 price={2}
                 language={lang}
+                invalid={Boolean(fieldErrors.deliveryType)}
               />
               <DeliveryCard
                 type="office"
@@ -128,8 +191,10 @@ function Checkout() {
                 subtitle="Workplace address"
                 price={1}
                 language={lang}
+                invalid={Boolean(fieldErrors.deliveryType)}
               />
             </div>
+            <FieldError id="delivery_type-error" message={fieldErrors.deliveryType} />
           </Section>
 
           <Section
@@ -141,30 +206,58 @@ function Checkout() {
               placeholder={lang === "ar" ? "الاسم" : "Name"}
               required
               maxLength={200}
+              error={fieldErrors.fullName}
             />
             <Input
               name="address"
               placeholder={
                 deliveryType === "office"
-                  ? "Company, building and street"
-                  : "Street address and region"
+                  ? lang === "ar"
+                    ? "الشركة والمبنى والشارع"
+                    : "Company, building and street"
+                  : lang === "ar"
+                    ? "عنوان الشارع والمنطقة"
+                    : "Street address and region"
               }
               required
+              maxLength={500}
+              error={fieldErrors.address}
             />
             <div className="grid gap-3 sm:grid-cols-2">
-              <Input name="city" placeholder="City" required />
+              <Input
+                name="city"
+                placeholder={lang === "ar" ? "المدينة" : "City"}
+                autoComplete="address-level2"
+                required
+                maxLength={120}
+                error={fieldErrors.city}
+              />
               <Input
                 name="country"
                 defaultValue="Sultanate of Oman"
                 aria-label="Country"
                 readOnly
+                error={fieldErrors.country}
               />
             </div>
             <textarea
               name="notes"
-              placeholder="Gift or delivery notes (optional)"
+              placeholder={
+                lang === "ar"
+                  ? "ملاحظات الهدية أو التوصيل (اختياري)"
+                  : "Gift or delivery notes (optional)"
+              }
+              aria-label={
+                lang === "ar"
+                  ? "ملاحظات الهدية أو التوصيل (اختياري)"
+                  : "Gift or delivery notes (optional)"
+              }
+              maxLength={1000}
+              aria-invalid={Boolean(fieldErrors.notes)}
+              aria-describedby={fieldErrors.notes ? "notes-error" : undefined}
               className="min-h-20 w-full resize-y rounded-2xl border border-border bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none"
             />
+            <FieldError id="notes-error" message={fieldErrors.notes} />
           </Section>
 
           {boxes.length > 0 && (
@@ -324,12 +417,10 @@ function Checkout() {
           </div>
           <button
             type="submit"
-            disabled={
-              submitting || uploadingProof || !deliveryType || cartItemsNeedingOptions.length > 0
-            }
+            disabled={submitting || uploadingProof}
             className="mt-6 w-full rounded-full bg-primary px-6 py-4 text-sm font-semibold uppercase tracking-[0.15em] text-primary-foreground disabled:opacity-50"
           >
-            {submitting ? "Placing..." : "Place Order"}
+            {submitting ? t("checkout.placing") : t("checkout.placeOrder")}
           </button>
           <Link
             to="/cart"
@@ -352,12 +443,30 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
+function FieldError({ id, message }: { id: string; message?: string }) {
+  return message ? (
+    <p id={id} className="text-sm text-destructive" role="alert">
+      {message}
+    </p>
+  ) : null;
+}
+
+function Input({
+  error,
+  ...props
+}: React.InputHTMLAttributes<HTMLInputElement> & { error?: string }) {
+  const errorId = `${props.name}-error`;
   return (
-    <input
-      {...props}
-      className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none"
-    />
+    <div className="space-y-1.5">
+      <input
+        {...props}
+        aria-label={props["aria-label"] ?? props.placeholder}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? errorId : undefined}
+        className={`w-full rounded-2xl border bg-background px-4 py-3 text-sm focus:outline-none ${error ? "border-destructive focus:border-destructive" : "border-border focus:border-primary"}`}
+      />
+      <FieldError id={errorId} message={error} />
+    </div>
   );
 }
 
@@ -370,6 +479,7 @@ function DeliveryCard({
   subtitle,
   price,
   language,
+  invalid,
 }: {
   type: DeliveryType;
   selected: DeliveryType | null;
@@ -379,14 +489,19 @@ function DeliveryCard({
   subtitle: string;
   price: number;
   language: "en" | "ar";
+  invalid: boolean;
 }) {
   return (
     <label
-      className={`flex min-w-0 cursor-pointer items-center gap-3 rounded-2xl border p-4 ${selected === type ? "border-primary bg-primary/5" : "border-border"}`}
+      className={`flex min-w-0 cursor-pointer items-center gap-3 rounded-2xl border p-4 ${invalid ? "border-destructive" : selected === type ? "border-primary bg-primary/5" : "border-border"}`}
     >
       <input
         type="radio"
         name="delivery_type"
+        value={type}
+        required
+        aria-invalid={invalid}
+        aria-describedby={invalid ? "delivery_type-error" : undefined}
         checked={selected === type}
         onChange={() => onSelect(type)}
         className="accent-primary"

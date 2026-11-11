@@ -20,16 +20,6 @@ export async function sendNewOrderAdminEmail(
     if (settingsError) throw new Error("Unable to load order notification settings");
     if (settings?.admin_order_emails_enabled !== true) return "disabled";
 
-    const admins = [
-      ...new Set(
-        (process.env.ORDER_ADMIN_EMAILS ?? "")
-          .split(",")
-          .map((email) => email.trim().toLowerCase())
-          .filter(Boolean),
-      ),
-    ];
-    if (!admins.length) return "disabled";
-
     const isDevelopment = process.env.NODE_ENV === "development";
     const key = process.env.RESEND_API_KEY?.trim();
     const from = process.env.ORDER_EMAIL_FROM?.trim();
@@ -40,6 +30,24 @@ export async function sendNewOrderAdminEmail(
       }
       return "disabled";
     }
+
+    // Resolve current admins server-side; never trust browser-supplied recipients.
+    const { data: roles, error: rolesError } = await supabase
+      .from("user_roles")
+      .select("user_id")
+      .eq("role", "admin");
+    if (rolesError || !roles) throw new Error("Unable to load order notification admins");
+    const adminEmails = await Promise.all(
+      roles.map(async ({ user_id }) => {
+        const { data, error } = await supabase.auth.admin.getUserById(user_id);
+        if (error) throw new Error("Unable to load order notification admin email");
+        return data.user.email?.trim().toLowerCase();
+      }),
+    );
+    const admins = [
+      ...new Set(adminEmails.filter((email): email is string => Boolean(email))),
+    ].sort();
+    if (!admins.length) return "disabled";
 
     // Render committed order/item snapshots, never browser-supplied cart details.
     const { data: order, error } = await supabase

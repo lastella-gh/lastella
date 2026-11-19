@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "node --env-file-if-exists=.env ./node_modules/vite/bin/vite.js dev",
     "build": "node --env-file-if-exists=.env ./node_modules/vite/bin/vite.js build",
+    "build:hostinger": "NITRO_PRESET=node-server npm run build",
     "build:dev": "node --env-file-if-exists=.env ./node_modules/vite/bin/vite.js build --mode development",
+    "start": "node --env-file-if-exists=.env .output/server/index.mjs",
     "preview": "node --env-file-if-exists=.env ./node_modules/vite/bin/vite.js preview",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",

@@ -197,9 +197,7 @@ function Checkout() {
             <FieldError id="delivery_type-error" message={fieldErrors.deliveryType} />
           </Section>
 
-          <Section
-            title={lang === "ar" ? "عنوان التوصيل (سلطنة عُمان)" : "Delivery Address (Oman)"}
-          >
+          <Section title={lang === "ar" ? "عنوان التوصيل (سلطنة عُمان)" : "Delivery Address (Oman)"}>
             <Input
               name="full_name"
               autoComplete="name"

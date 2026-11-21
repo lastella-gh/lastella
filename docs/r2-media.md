@@ -1,5 +1,9 @@
 # Move public product media to Cloudflare R2
 
+The product media cutover completed on 22 November 2026. All 739 original files (968,881,649 bytes) were verified in R2 and returned successfully over public HTTPS at `https://cdn.lastellajewellery.com`. Migration `20261121205932_migrate_verified_product_media_to_r2.sql` switched image references on 699 products and 89 historical order items. Other fields and gallery ordering were compared against the private pre-cutover backup. The earlier missing historical image retains its old URL. Two external order images and the homepage's ImageKit video/poster retain their existing providers.
+
+Use `R2_PUBLIC_URL=https://cdn.lastellajewellery.com` and `VITE_R2_PRODUCT_UPLOADS=true` in the Hostinger deployment environment, alongside the server-only R2 bucket and credentials, to enable new admin uploads to the same bucket. These environment changes require a rebuild. The private cutover backup, verification results, and conditional rollback SQL are under `/home/ak/.local/share/lastella/migrations/r2-cdn-cutover-20261122/`.
+
 Use a dedicated R2 bucket for the public Supabase `product-images` objects. R2 objects retain their existing keys and original bytes. Supabase continues to own the catalog, orders, settings, and media URL fields.
 
 Create an R2 token with **Object Read & Write** for the product media bucket only. Set `R2_ENDPOINT` to the account-level S3 endpoint and `R2_BUCKET` to the bucket name. Store `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` in the ignored local `.env` and in the Hostinger environment when configuring admin uploads. Use a Cloudflare R2 custom domain for `R2_PUBLIC_URL`. Cloudflare requires the custom domain's zone to be in the bucket's account. Its public `r2.dev` URL is rate limited and intended for development.

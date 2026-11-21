@@ -1,7 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { checkoutSchema, paymentIntentSchema } from "@/lib/checkout";
 import { createCheckoutOrder } from "@/lib/checkout.server";
-import { discardPaymentProof, preparePaymentProof } from "@/lib/payment-proof.server";
+import {
+  discardPaymentProof,
+  preparePaymentProof,
+  uploadPaymentProofToR2,
+} from "@/lib/payment-proof.server";
 import { z } from "zod";
 
 export const submitCheckout = createServerFn({ method: "POST" })
@@ -19,6 +23,13 @@ export const submitCheckout = createServerFn({ method: "POST" })
 export const preparePaymentProofUpload = createServerFn({ method: "POST" })
   .validator(z.object({ filename: z.string(), contentType: z.string(), size: z.number() }))
   .handler(({ data }) => preparePaymentProof(data));
+
+export const uploadPrivatePaymentProof = createServerFn({ method: "POST" })
+  .validator((data: FormData) => {
+    if (!(data instanceof FormData)) throw new Error("Payment proof upload requires form data");
+    return data;
+  })
+  .handler(({ data }) => uploadPaymentProofToR2(data));
 
 export const discardPaymentProofUpload = createServerFn({ method: "POST" })
   .validator(paymentIntentSchema)

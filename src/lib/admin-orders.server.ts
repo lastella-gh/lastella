@@ -2,6 +2,11 @@ import "@tanstack/react-start/server-only";
 
 import { requireAdmin } from "@/lib/server-auth.server";
 import type { Enums } from "@/integrations/supabase/types";
+import {
+  getPaymentProofR2,
+  isPaymentProofKey,
+  R2_PROOF_PREFIX,
+} from "@/lib/payment-proof-r2.server";
 
 export type PaymentStatus =
   "awaiting_payment" | "proof_submitted" | "payment_verified" | "payment_rejected";
@@ -94,6 +99,20 @@ export async function getAdminPaymentProof(orderId: string) {
   if (error) throw new Error(`Failed to load payment proof: ${error.message}`);
   const path = data?.payment_proof_path;
   if (!path) throw new Error("This order has no payment proof");
+
+  const usesR2 = path.startsWith(R2_PROOF_PREFIX);
+  if (usesR2 || isPaymentProofKey(path)) {
+    try {
+      const storage = getPaymentProofR2();
+      if (storage) {
+        const head = await storage.request(path, { method: "HEAD" });
+        if (head.ok) return { url: await storage.signRead(path) };
+      }
+    } catch {
+      if (usesR2) throw new Error("Failed to create private payment proof link");
+    }
+    if (usesR2) throw new Error("Failed to create private payment proof link");
+  }
 
   const { data: signed, error: signedError } = await supabase.storage
     .from("payment-proofs")

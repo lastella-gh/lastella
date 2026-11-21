@@ -8,6 +8,7 @@ import {
   discardPaymentProofUpload,
   preparePaymentProofUpload,
   submitCheckout,
+  uploadPrivatePaymentProof,
 } from "@/lib/checkout.functions";
 import { formatNumber, formatNumericLabel, formatPrice } from "@/lib/currency";
 import { useI18n } from "@/lib/i18n";
@@ -324,10 +325,18 @@ function Checkout() {
                     const prepared = await preparePaymentProofUpload({
                       data: { filename: file.name, contentType: file.type, size: file.size },
                     });
-                    const { error } = await supabase.storage
-                      .from("payment-proofs")
-                      .uploadToSignedUrl(prepared.path, prepared.token, file);
-                    if (error) throw error;
+                    if (prepared.provider === "r2") {
+                      const data = new FormData();
+                      data.set("intentId", prepared.intentId);
+                      data.set("claimToken", prepared.claimToken);
+                      data.set("image", file);
+                      await uploadPrivatePaymentProof({ data });
+                    } else {
+                      const { error } = await supabase.storage
+                        .from("payment-proofs")
+                        .uploadToSignedUrl(prepared.path, prepared.token, file);
+                      if (error) throw error;
+                    }
                     setProof({
                       intentId: prepared.intentId,
                       claimToken: prepared.claimToken,

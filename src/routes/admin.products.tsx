@@ -11,6 +11,7 @@ import { translateToArabic, useArabicTranslation } from "@/hooks/use-arabic-tran
 import { getKnownArabicVariantLabel, type VariantOptionKind } from "@/lib/variant-labels";
 import { filterAdminProducts, getProductKindLabel } from "@/lib/admin-product-listing";
 import { PRODUCT_CATEGORIES, type ProductCategory } from "@/lib/product-categories";
+import { uploadProductImageFn } from "@/lib/admin-product-images.functions";
 
 export const Route = createFileRoute("/admin/products")({
   component: AdminProducts,
@@ -648,7 +649,7 @@ function ProductForm({
         setSaveStatus("Uploading main image...");
         const uploaded = await uploadImage(mainFile);
         image = uploaded.url;
-        uploadedPaths.push(uploaded.path);
+        if (uploaded.path) uploadedPaths.push(uploaded.path);
       }
 
       const uploadedGallery: string[] = [];
@@ -656,7 +657,7 @@ function ProductForm({
         setSaveStatus(`Uploading images (${index + 1}/${galleryFiles.length})...`);
         const uploaded = await uploadImage(file);
         uploadedGallery.push(uploaded.url);
-        uploadedPaths.push(uploaded.path);
+        if (uploaded.path) uploadedPaths.push(uploaded.path);
       }
 
       const category =
@@ -712,17 +713,22 @@ function ProductForm({
       toast.success(initial ? "Product updated" : "Product created");
       await onSaved();
     } catch (error) {
+      let uploadsMayBeReferenced = productPersisted;
       if (createdProductId) {
-        await supabase.from("products").delete().eq("id", createdProductId);
-        productPersisted = false;
+        const { error: rollbackError } = await supabase
+          .from("products")
+          .delete()
+          .eq("id", createdProductId);
+        uploadsMayBeReferenced = Boolean(rollbackError);
       }
-      if (initial && productPersisted && uploadedPaths.length > 0) {
-        await supabase
+      if (initial && productPersisted && (mainFile || galleryFiles.length > 0)) {
+        const { error: rollbackError } = await supabase
           .from("products")
           .update({ image: initial.image, images: initial.images })
           .eq("id", initial.id);
+        uploadsMayBeReferenced = Boolean(rollbackError);
       }
-      if (uploadedPaths.length > 0) {
+      if (!uploadsMayBeReferenced && uploadedPaths.length > 0) {
         await supabase.storage.from("product-images").remove(uploadedPaths);
       }
       console.error("Failed to save product", error);
@@ -1200,6 +1206,12 @@ function ImageThumbnail({ src, onRemove }: { src: string; onRemove: () => void }
 }
 
 async function uploadImage(file: File) {
+  if (import.meta.env.VITE_R2_PRODUCT_UPLOADS === "true") {
+    const data = new FormData();
+    data.set("image", file);
+    const { url } = await uploadProductImageFn({ data });
+    return { path: null, url };
+  }
   const safeName = file.name.toLowerCase().replace(/[^a-z0-9.-]+/g, "-");
   const path = `products/${crypto.randomUUID()}-${safeName}`;
   const { error } = await supabase.storage.from("product-images").upload(path, file, {
